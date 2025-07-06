@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<head>
+    <meta charset="utf-8">
+    <title>Bouncing Balls</title>
+    <link href="https://fonts.googleapis.com/css2?family=Lexend:wght@100..800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" integrity="sha512-iecdLmaskl7CVkqkXNQ/ZH/XLlvWZOJyj7Yy7tcenmpD1ypASozpmT/E0iPtmFIB46ZmdtAc9eNBvH0H/ZpiBw==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+    <style>
+        :root {
+            --background-color: #1a1a1a;
+            --text-color: #fff;
+            box-sizing: border-box;
+            font-family: "Lexend", "Helvetica Neue", "Helvetica", sans-serif;
+        }
+
+        body {
+            background-color: var(--background-color);
+            color: var(--text-color);
+            margin: 0;
+            padding: 0;
+            width: 100vw;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        .ball {
+            position: absolute;
+            border-radius: 50%;
+            background: radial-gradient(circle at 30% 30%, #ff6b6b, #ff0000);
+            box-shadow: 
+                inset -4px -4px 8px rgba(0,0,0,0.5),
+                inset 4px 4px 8px rgba(255,255,255,0.5),
+                0 0 10px rgba(255,0,0,0.3);
+            cursor: grab;
+            touch-action: none;
+            user-select: none;
+        }
+
+        .ball.grabbed {
+            cursor: grabbing;
+        }
+
+        .power-line {
+            position: absolute;
+            height: 4px;
+            background-color: rgba(255, 255, 255, 0.8);
+            transform-origin: left center;
+            pointer-events: none;
+            transition: opacity 0.1s ease;
+        }
+    </style>
+</head>
+<body>
+<script>
+// Keep track of all balls
+const balls = [];
+
+class Ball {
+    constructor(x, y, size) {
+        this.element = document.createElement('div');
+        this.element.className = 'ball';
+        this.size = Math.max(20, Math.min(size, 100));
+        this.radius = this.size / 2;
+        this.x = x - this.size/2;
+        this.y = y - this.size/2;
+        this.centerX = this.x + this.radius;
+        this.centerY = this.y + this.radius;
+        this.vx = 0;
+        this.vy = 0;
+        this.mass = this.size * this.size; // Mass proportional to area
+        this.gravity = 0.5;
+        this.friction = 0.99;
+        this.restitution = 0.8;
+        this.grabbed = false;
+        this.lastX = 0;
+        this.lastY = 0;
+        this.lastTime = 0;
+
+        this.element.style.width = `${this.size}px`;
+        this.element.style.height = `${this.size}px`;
+        
+        this.setupEventListeners();
+        document.body.appendChild(this.element);
+        balls.push(this);
+        this.update();
+    }
+
+    setupEventListeners() {
+        this.element.addEventListener('mousedown', this.grab.bind(this));
+        this.element.addEventListener('touchstart', this.grab.bind(this));
+        document.addEventListener('mousemove', this.move.bind(this));
+        document.addEventListener('touchmove', this.move.bind(this));
+        document.addEventListener('mouseup', this.release.bind(this));
+        document.addEventListener('touchend', this.release.bind(this));
+    }
+
+    grab(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        this.grabbed = true;
+        this.element.classList.add('grabbed');
+        this.lastX = e.type.includes('mouse') ? e.clientX : e.touches[0].clientX;
+        this.lastY = e.type.includes('mouse') ? e.clientY : e.touches[0].clientY;
+        this.lastTime = Date.now();
+    }
+
+    move(e) {
+        if (!this.grabbed) return;
+        e.preventDefault();
+        
+        const currentX = e.type.includes('mouse') ? e.clientX : e.touches[0].clientX;
+        const currentY = e.type.includes('mouse') ? e.clientY : e.touches[0].clientY;
+        const currentTime = Date.now();
+        const dt = (currentTime - this.lastTime) / 1000;
+        
+        if (dt > 0) {
+            this.vx = (currentX - this.lastX) / dt;
+            this.vy = (currentY - this.lastY) / dt;
+        }
+
+        this.x = currentX - this.size/2;
+        this.y = currentY - this.size/2;
+        this.updateCenter();
+        
+        this.lastX = currentX;
+        this.lastY = currentY;
+        this.lastTime = currentTime;
+        
+        this.updatePosition();
+    }
+
+    release() {
+        this.grabbed = false;
+        this.element.classList.remove('grabbed');
+    }
+
+    launch(vx, vy) {
+        this.vx = vx;
+        this.vy = vy;
+    }
+
+    updateCenter() {
+        this.centerX = this.x + this.radius;
+        this.centerY = this.y + this.radius;
+    }
+
+    checkCollision(other) {
+        const dx = other.centerX - this.centerX;
+        const dy = other.centerY - this.centerY;
+        const distance = Math.sqrt(dx * dx + dy * dy);
+        
+        if (distance < this.radius + other.radius) {
+            // Collision detected - calculate collision response
+            const normalX = dx / distance;
+            const normalY = dy / distance;
+            
+            // Relative velocity
+            const relativeVelocityX = this.vx - other.vx;
+            const relativeVelocityY = this.vy - other.vy;
+            
+            // Relative velocity along normal
+            const velocityAlongNormal = relativeVelocityX * normalX + relativeVelocityY * normalY;
+            
+            // Don't resolve if objects are moving apart
+            if (velocityAlongNormal > 0) return;
+            
+            // Calculate restitution (bounce factor)
+            const restitution = Math.min(this.restitution, other.restitution);
+            
+            // Calculate impulse scalar
+            const impulseScalar = -(1 + restitution) * velocityAlongNormal;
+            const totalMass = this.mass + other.mass;
+            const impulseX = (impulseScalar * normalX) / totalMass;
+            const impulseY = (impulseScalar * normalY) / totalMass;
+            
+            // Apply impulse
+            this.vx -= impulseX * other.mass;
+            this.vy -= impulseY * other.mass;
+            other.vx += impulseX * this.mass;
+            other.vy += impulseY * this.mass;
+            
+            // Separate the balls to prevent sticking
+            const overlap = (this.radius + other.radius - distance) / 2;
+            const separationX = normalX * overlap;
+            const separationY = normalY * overlap;
+            
+            if (!this.grabbed) {
+                this.x -= separationX;
+                this.y -= separationY;
+            }
+            if (!other.grabbed) {
+                other.x += separationX;
+                other.y += separationY;
+            }
+            
+            this.updateCenter();
+            other.updateCenter();
+        }
+    }
+
+    update() {
+        // Only apply physics if the ball has been launched (not grabbed and not waiting for launch)
+        if (!this.grabbed && !window.currentBall) {
+            this.vy += this.gravity;
+            this.vx *= this.friction;
+            this.vy *= this.friction;
+            
+            this.x += this.vx;
+            this.y += this.vy;
+            this.updateCenter();
+
+            // Bounce off walls
+            if (this.x <= 0) {
+                this.x = 0;
+                this.vx = -this.vx * this.restitution;
+            }
+            if (this.x + this.size >= window.innerWidth) {
+                this.x = window.innerWidth - this.size;
+                this.vx = -this.vx * this.restitution;
+            }
+            if (this.y <= 0) {
+                this.y = 0;
+                this.vy = -this.vy * this.restitution;
+            }
+            if (this.y + this.size >= window.innerHeight) {
+                this.y = window.innerHeight - this.size;
+                this.vy = -this.vy * this.restitution;
+            }
+
+            // Check collisions with other balls
+            for (let other of balls) {
+                if (other !== this) {
+                    this.checkCollision(other);
+                }
+            }
+
+            this.updatePosition();
+        }
+        requestAnimationFrame(this.update.bind(this));
+    }
+
+    updatePosition() {
+        this.element.style.transform = `translate(${this.x}px, ${this.y}px)`;
+    }
+}
+
+// Track click state and power line
+let clickStartTime = 0;
+let clickStartX = 0;
+let clickStartY = 0;
+let currentBall = null;
+let powerLine = null;
+
+function createPowerLine(x, y) {
+    powerLine = document.createElement('div');
+    powerLine.className = 'power-line';
+    powerLine.style.left = `${x}px`;
+    powerLine.style.top = `${y}px`;
+    document.body.appendChild(powerLine);
+}
+
+function updatePowerLine(startX, startY, currentX, currentY) {
+    if (!powerLine) return;
+    
+    const dx = currentX - startX;
+    const dy = currentY - startY;
+    const angle = Math.atan2(dy, dx);
+    const distance = Math.sqrt(dx * dx + dy * dy);
+    
+    powerLine.style.width = `${distance}px`;
+    powerLine.style.transform = `rotate(${angle}rad)`;
+}
+
+function removePowerLine() {
+    if (powerLine) {
+        powerLine.remove();
+        powerLine = null;
+    }
+}
+
+document.addEventListener('mousedown', (e) => {
+    if (e.target.classList.contains('ball')) return;
+    
+    clickStartTime = Date.now();
+    clickStartX = e.clientX;
+    clickStartY = e.clientY;
+    
+    const size = 20; // Start with minimum size
+    currentBall = new Ball(clickStartX, clickStartY, size);
+    // Fix the ball position at creation point until launch
+    currentBall.x = clickStartX - currentBall.size/2;
+    currentBall.y = clickStartY - currentBall.size/2;
+    currentBall.updateCenter();
+    currentBall.updatePosition();
+    createPowerLine(clickStartX, clickStartY);
+});
+
+document.addEventListener('mousemove', (e) => {
+    if (currentBall && powerLine) {
+        updatePowerLine(clickStartX, clickStartY, e.clientX, e.clientY);
+    }
+});
+
+document.addEventListener('mouseup', (e) => {
+    if (currentBall && powerLine) {
+        const dx = e.clientX - clickStartX;
+        const dy = e.clientY - clickStartY;
+        const distance = Math.sqrt(dx * dx + dy * dy);
+        const power = Math.min(distance / 10, 30); // Cap the maximum power
+        
+        currentBall.launch(-dx/10, -dy/10); // Launch in opposite direction of drag
+        removePowerLine();
+        currentBall = null;
+    }
+});
+</script>
+</body>
+</html>

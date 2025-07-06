@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Slingshot Physics Demo</title>
+    <style>
+        #game-canvas {
+            border: 1px solid #333;
+            background: #f0f0f0;
+            cursor: crosshair;
+        }
+        
+        #instructions {
+            margin: 10px 0;
+            font-family: Arial, sans-serif;
+        }
+    </style>
+</head>
+<body>
+    <div id="instructions">Click and pull back on the slingshot to aim, release to shoot!</div>
+    <canvas id="game-canvas" width="800" height="600"></canvas>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/matter-js/0.19.0/matter.min.js"></script>
+    <script>
+        // Module aliases for Matter.js
+        const Engine = Matter.Engine,
+            Render = Matter.Render,
+            Runner = Matter.Runner,
+            Bodies = Matter.Bodies,
+            Composite = Matter.Composite,
+            Body = Matter.Body;
+
+        // Create engine and renderer
+        const engine = Engine.create({
+    gravity: { x: 0, y: 1 }  // Reduced gravity for better arcs
+});
+        const render = Render.create({
+            element: document.body,
+            canvas: document.getElementById('game-canvas'),
+            engine: engine,
+            options: {
+                width: 800,
+                height: 600,
+                wireframes: false
+            }
+        });
+
+        // Slingshot configuration
+        const slingshotBase = {
+            x: 150,
+            y: 450,
+            width: 20,
+            height: 100
+        };
+
+        const slingshotPocket = {
+            x: slingshotBase.x + 20,
+            y: slingshotBase.y - 40,
+            radius: 5
+        };
+
+        // Create ground
+        const ground = Bodies.rectangle(400, 590, 810, 20, { 
+            isStatic: true,
+            render: {
+                fillStyle: '#666'
+            }
+        });
+
+        // Create stack of boxes
+        const stack = [];
+        const boxSize = 40;
+        const numRows = 6;
+        const numCols = 3;
+        
+        for (let row = 0; row < numRows; row++) {
+            for (let col = 0; col < numCols; col++) {
+                const box = Bodies.rectangle(
+                    500 + (col * boxSize), 
+                    550 - (row * boxSize), 
+                    boxSize - 2, 
+                    boxSize - 2,
+                    {
+                        render: {
+                            fillStyle: '#F27435'
+                        }
+                    }
+                );
+                stack.push(box);
+            }
+        }
+
+        // Add all bodies to the world
+        Composite.add(engine.world, [ground, ...stack]);
+
+        // Run the renderer
+        Render.run(render);
+
+        // Create runner
+        const runner = Runner.create();
+        Runner.run(runner, engine);
+
+        // Slingshot state
+        let isDragging = false;
+        let projectile = null;
+        let dragPos = null;
+        const maxStretch = 150;
+
+        // Get canvas and context for slingshot drawing
+        const canvas = document.getElementById('game-canvas');
+        const ctx = canvas.getContext('2d');
+
+        // Draw slingshot and elastic
+        function drawSlingshot() {
+            // Draw base
+            ctx.fillStyle = '#654321';
+            ctx.fillRect(slingshotBase.x, slingshotBase.y - slingshotBase.height, 
+                        slingshotBase.width, slingshotBase.height);
+            
+            // Draw fork
+            ctx.beginPath();
+            ctx.moveTo(slingshotBase.x, slingshotBase.y - slingshotBase.height);
+            ctx.lineTo(slingshotBase.x - 20, slingshotBase.y - slingshotBase.height - 40);
+            ctx.lineWidth = 10;
+            ctx.strokeStyle = '#654321';
+            ctx.stroke();
+
+            ctx.beginPath();
+            ctx.moveTo(slingshotBase.x + slingshotBase.width, slingshotBase.y - slingshotBase.height);
+            ctx.lineTo(slingshotBase.x + slingshotBase.width + 20, slingshotBase.y - slingshotBase.height - 40);
+            ctx.stroke();
+
+            // Draw elastic bands
+            if (dragPos) {
+                ctx.beginPath();
+                ctx.moveTo(slingshotBase.x - 20, slingshotBase.y - slingshotBase.height - 40);
+                ctx.lineTo(dragPos.x, dragPos.y);
+                ctx.lineTo(slingshotBase.x + slingshotBase.width + 20, slingshotBase.y - slingshotBase.height - 40);
+                ctx.lineWidth = 3;
+                ctx.strokeStyle = '#333';
+                ctx.stroke();
+            } else {
+                // Draw resting elastic
+                ctx.beginPath();
+                ctx.moveTo(slingshotBase.x - 20, slingshotBase.y - slingshotBase.height - 40);
+                ctx.lineTo(slingshotPocket.x, slingshotPocket.y);
+                ctx.lineTo(slingshotBase.x + slingshotBase.width + 20, slingshotBase.y - slingshotBase.height - 40);
+                ctx.lineWidth = 3;
+                ctx.strokeStyle = '#333';
+                ctx.stroke();
+            }
+
+            // Draw projectile if dragging
+            if (dragPos) {
+                ctx.beginPath();
+                ctx.arc(dragPos.x, dragPos.y, 15, 0, Math.PI * 2);
+                ctx.fillStyle = '#4CAF50';
+                ctx.fill();
+            }
+        }
+
+        // Mouse/Touch event handlers
+        function getMousePos(e) {
+            const rect = canvas.getBoundingClientRect();
+            const clientX = e.clientX || (e.touches ? e.touches[0].clientX : 0);
+            const clientY = e.clientY || (e.touches ? e.touches[0].clientY : 0);
+            return {
+                x: clientX - rect.left,
+                y: clientY - rect.top
+            };
+        }
+
+        function startDrag(e) {
+            const pos = getMousePos(e);
+            // Check if click is near slingshot pocket
+            const dx = pos.x - slingshotPocket.x;
+            const dy = pos.y - slingshotPocket.y;
+            const distance = Math.sqrt(dx * dx + dy * dy);
+            
+            if (distance < 30) {
+                isDragging = true;
+                dragPos = pos;
+            }
+        }
+
+        function updateDrag(e) {
+            if (!isDragging) return;
+            
+            e.preventDefault();
+            const pos = getMousePos(e);
+            
+            // Calculate distance from slingshot pocket
+            const dx = pos.x - slingshotPocket.x;
+            const dy = pos.y - slingshotPocket.y;
+            const distance = Math.sqrt(dx * dx + dy * dy);
+            
+            // Limit stretch distance
+            if (distance > maxStretch) {
+                const angle = Math.atan2(dy, dx);
+                dragPos = {
+                    x: slingshotPocket.x + Math.cos(angle) * maxStretch,
+                    y: slingshotPocket.y + Math.sin(angle) * maxStretch
+                };
+            } else {
+                dragPos = pos;
+            }
+            
+            // Clear and redraw
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            drawSlingshot();
+        }
+
+        function endDrag(e) {
+            if (!isDragging) return;
+            
+            isDragging = false;
+            
+            if (dragPos) {
+                // Calculate velocity based on drag distance
+                const dx = slingshotPocket.x - dragPos.x;
+                const dy = slingshotPocket.y - dragPos.y;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+                const power = Math.min(distance / maxStretch, 1);
+                
+                // Create projectile
+                const projectile = Bodies.circle(dragPos.x, dragPos.y, 15, {
+                    density: 0.001,  // Adjusted for better arcs
+                    friction: 0.001,
+                    restitution: 0.4,
+                    frictionAir: 0.001,  // Low air friction for smoother arcs
+                    render: {
+                        fillStyle: '#4CAF50'
+                    }
+                });
+                
+                // Add to world
+                Composite.add(engine.world, projectile);
+                
+                // Set velocity
+                // Calculate velocity with better upward trajectory support
+                const forceMagnitude = 0.35 * power;
+                const velocity = {
+                    x: dx * forceMagnitude,
+                    y: dy * forceMagnitude
+                };
+                
+                // Add minimum velocity threshold for more consistent shots
+                const minVelocity = 2;
+                if (Math.abs(velocity.x) < minVelocity) velocity.x *= minVelocity;
+                if (Math.abs(velocity.y) < minVelocity) velocity.y *= minVelocity;
+                
+                Body.setVelocity(projectile, velocity);
+            }
+            
+            dragPos = null;
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            drawSlingshot();
+        }
+
+        // Add event listeners
+        canvas.addEventListener('mousedown', startDrag);
+        canvas.addEventListener('mousemove', updateDrag);
+        canvas.addEventListener('mouseup', endDrag);
+        
+        // Touch events
+        canvas.addEventListener('touchstart', startDrag);
+        canvas.addEventListener('touchmove', updateDrag);
+        canvas.addEventListener('touchend', endDrag);
+
+        // Initial slingshot draw
+        drawSlingshot();
+
+        // Add Matter.js render events to keep slingshot visible
+        Matter.Events.on(render, 'afterRender', () => {
+            drawSlingshot();
+        });
+    </script>
+</body>
+</html>

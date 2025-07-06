@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="Canvas Animation Page">
+    <meta name="author" content="Your Name">
+    <title>Canvas Animation with Emitting Circles</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Lexend:wght@100..800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" 
+          integrity="sha512-iecdLmaskl7CVkqkXNQ/ZH/XLlvWZOJyj7Yy7tcenmpD1ypASozpmT/E0iPtmFIB46ZmdtAc9eNBvH0H/ZpiBw==" 
+          crossorigin="anonymous" referrerpolicy="no-referrer" />
+    <style>
+        :root {
+            --background-color: #000;
+            --text-color: #ddd;
+            --header-background: #999;
+            --footer-background: #666;
+        }
+        * { box-sizing: border-box; }
+        html, body {
+            margin: 0;
+            padding: 0;
+            height: 100%;
+            width: 100%;
+        }
+        body {
+            font-family: "Lexend", "Helvetica Neue", "Helvetica", sans-serif;
+            font-size: 14px;
+            background-color: var(--background-color);
+            color: var(--text-color);
+            overflow: hidden; /* Prevent scrollbars from appearing */
+        }
+        header {
+            background-color: var(--header-background);
+            height: 0vh;
+        }
+        main {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        footer {
+            background-color: var(--footer-background);
+            height: 0vh;
+        }
+        canvas {
+            display: block;
+        }
+        /* Optional: Controls Styling */
+        #controls {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            z-index: 10;
+            display: flex;
+            gap: 10px;
+        }
+        #controls button {
+            padding: 5px 10px;
+            font-size: 14px;
+            cursor: pointer;
+        }
+    </style>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/js/all.min.js" 
+            integrity="sha512-fD9DI5bZwQxOi7MhYWnnNPlvXdp/2Pj3XSTRrFs5FQa4mizyGLnJcN6tuvUS6LbmgN1ut+XGSABKvjN0H6Aoow==" 
+            crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+</head>
+<body>
+    <div id="controls">
+        <label for="count">Emitters</label><input type="text" id="count" size="3" value="5" oninput="app.reset()">
+        <label for="delay">Delay</label><input type="text" id="delay" size="3" value="100" oninput="app.reset()">
+        <button id="pauseBtn">Pause</button>
+        <button id="resumeBtn">Resume</button>
+    </div>
+    <main role="main">
+        <canvas id="animationCanvas"></canvas>
+    </main>
+    <script>
+    (function() {
+        const $ = str => document.querySelector(str);
+        const $$ = str => document.querySelectorAll(str);
+
+        const app = {
+            canvas: null,
+            ctx: null,
+            circles: [],
+            animationFrameId: null,
+            state: {
+                loaded: false,
+                paused: false
+            },
+            reset() {
+                this.circles = [];
+                app.init($("#count").value, $("#delay").value);
+            },
+            init(emitters=5, delay=500) {
+                this.canvas = $('#animationCanvas');
+                this.ctx = this.canvas.getContext('2d');
+                this.resizeCanvas();
+                window.addEventListener('resize', () => this.resizeCanvas());
+                this.state.loaded = true;
+                this.startAnimation();
+
+                // Initialize a line of 12 emitter circles, 50px apart, centered on the canvas
+                this.initializeEmittersLine($("#count").value, 50, delay);
+
+                // Add click event listener to the canvas
+                this.canvas.addEventListener('click', (event) => this.handleCanvasClick(event));
+
+                // Add event listeners for pause and resume buttons
+                $('#pauseBtn').addEventListener('click', () => this.pauseAnimation());
+                $('#resumeBtn').addEventListener('click', () => this.resumeAnimation());
+            },
+            resizeCanvas() {
+                this.canvas.width = window.innerWidth;
+                this.canvas.height = window.innerHeight;
+
+                // Optionally, reposition the emitters to stay centered after resize
+                // Uncomment the following line if you want to reposition emitters on resize
+                // this.repositionEmitters();
+            },
+            repositionEmitters() {
+                const emitters = this.circles.filter(circle => circle.isSource);
+                const count = emitters.length;
+                const spacing = 50;
+                const centerX = this.canvas.width / 2;
+                const centerY = this.canvas.height / 2;
+                const totalSpacing = spacing * (count - 1);
+                const startX = centerX - (totalSpacing / 2);
+                const y = centerY;
+
+                emitters.forEach((circle, index) => {
+                    circle.x = startX + index * spacing;
+                    circle.y = y;
+                });
+            },
+            initializeEmittersLine(count, spacing, delay=100) {
+                const centerX = this.canvas.width / 2;
+                const centerY = this.canvas.height / 2;
+                const totalSpacing = spacing * (count - 1);
+                const startX = centerX - (totalSpacing / 2);
+                const y = centerY;
+
+                for (let i = 0; i < count; i++) {
+                    const x = startX + i * spacing;
+                    const radius = 1; // Start with radius 1px for emitters
+                    //this.createCircle(x, y, radius, true); // isSource = true
+                    this.delayedCircle(x, y, radius, delay * i); // isSource = true
+                }
+            },
+            delayedCircle(x, y, radius, delay=100) {
+                setTimeout(() => { this.createCircle(x, y, radius, true); }, delay);
+            },
+            createCircle(x, y, radius, isSource = false) {
+                const circle = {
+                    x: x,
+                    y: y,
+                    radius: radius,
+                    growthRate: isSource ? 1 : 1 + Math.random() * 2, // Emitters grow at 1px/frame, others vary
+                    color: '#acf', // this.getRandomColor(),
+                    isSource: isSource,
+                    nextEmissionRadius: isSource ? 50 : null // Only sources have emission thresholds
+                };
+                this.circles.push(circle);
+            },
+            getRandomColor() {
+                const r = Math.floor(Math.random() * 256);
+                const g = Math.floor(Math.random() * 256);
+                const b = Math.floor(Math.random() * 256);
+                return `rgba(${r}, ${g}, ${b}, 0.5)`;
+            },
+            startAnimation() {
+                const animate = () => {
+                    if (!this.state.paused) {
+                        this.update();
+                        this.draw();
+                    }
+                    this.animationFrameId = requestAnimationFrame(animate);
+                };
+                animate();
+            },
+            pauseAnimation() {
+                this.state.paused = true;
+            },
+            resumeAnimation() {
+                if (this.state.paused) {
+                    this.state.paused = false;
+                }
+            },
+            update() {
+                this.circles.forEach(circle => {
+                    circle.radius += circle.growthRate;
+
+                    if (circle.isSource) {
+                        if (circle.radius == circle.nextEmissionRadius) {
+                            // Emit a new circle at the same location
+                            this.circles.push(this.createCircle(circle.x, circle.y, 1, true)); // Emitted circles are not sources
+                            // Set the next emission radius
+                            //circle.nextEmissionRadius += 10;
+                        }
+                    }
+                });
+
+                // Remove circles that get too large
+                this.circles = this.circles.filter(circle => {
+                    const maxRadius = Math.max(this.canvas.width, this.canvas.height);
+                    if (circle) {
+                        return circle.radius < maxRadius;
+                    } else {
+                        return false;
+                    }
+                });
+            },
+            draw() {
+                // Clear the canvas
+                this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+
+                // Draw each circle
+                this.circles.forEach(circle => {
+                    this.ctx.beginPath();
+                    this.ctx.arc(circle.x, circle.y, circle.radius, 0, Math.PI * 2, false);
+                    this.ctx.strokeStyle = circle.color; // Set stroke color
+                    this.ctx.lineWidth = 2; // Set line width to 2
+                    this.ctx.stroke(); // Stroke the circle
+                });
+            },
+            handleCanvasClick(event) {
+                // Get bounding rectangle of canvas
+                const rect = this.canvas.getBoundingClientRect();
+                // Calculate mouse position relative to canvas
+                const x = event.clientX - rect.left;
+                const y = event.clientY - rect.top;
+                const radius = 1; // Emitted circles start at 1px radius
+                this.createCircle(x, y, radius, false); // isSource = false
+
+                // Optional: Log the click coordinates
+                console.log(`Emitted circle created at (${x}, ${y}) with radius ${radius.toFixed(2)}`);
+            },
+            fetch(url, callback) {
+                fetch(url)
+                    .then(response => {
+                        if (!response.ok) throw new Error('Network response was not ok');
+                        return response.json();
+                    })
+                    .then(data => {
+                        app.data = data;
+                        app.state.loaded = true;
+                        if (callback && typeof callback === "function") {
+                            callback(data);
+                        }
+                    })
+                    .catch(error => console.error('Fetch error:', error));
+            },
+            display(data, tgt) {
+                let out = "<table><thead><tr>";
+                const keys = Object.keys(data[0]);
+                if (keys) {
+                    keys.forEach(key => out += `<th>${key}</th>`);
+                }
+                out += "</tr></thead><tbody>";
+                data.forEach(item => {
+                    out += `<tr>`;
+                    keys.forEach(key => out += `<td>${item[key]}</td>`);
+                    out += `</tr>`;
+                });
+                out += "</tbody></table>";
+                if (tgt) {
+                    tgt.innerHTML = out;
+                }
+                return out;
+            }
+        };
+        window.app = app;
+        document.addEventListener('DOMContentLoaded', () => app.init());
+    })();
+    </script>
+</body>
+</html>
+

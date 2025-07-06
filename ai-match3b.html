@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Match-3 Game</title>
+    <style>
+        canvas {
+            border: 1px solid black;
+        }
+        #score {
+            font-size: 24px;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="gameCanvas" width="400" height="400"></canvas>
+    <div id="score">Score: 0</div>
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const scoreElement = document.getElementById('score');
+
+        const GRID_SIZE = 8;
+        const CELL_SIZE = 50;
+        const COLORS = ['red', 'blue', 'green', 'yellow', 'purple'];
+        const ANIMATION_DURATION = 500; // milliseconds
+
+        let grid = [];
+        let selectedCell = null;
+        let score = 0;
+        let animatingCells = [];
+        let isAnimating = false;
+
+        class AnimatedCell {
+            constructor(x, y, color, startTime, type) {
+                this.x = x;
+                this.y = y;
+                this.color = color;
+                this.startTime = startTime;
+                this.type = type; // 'clear' or 'fall'
+                this.startY = type === 'fall' ? y - 1 : y;
+                this.endY = y;
+            }
+
+            draw(currentTime) {
+                const progress = Math.min(1, (currentTime - this.startTime) / ANIMATION_DURATION);
+                
+                if (this.type === 'clear') {
+                    // Clearing animation: grow and fade out
+                    const scale = 1 + progress * 0.5;
+                    const alpha = 1 - progress;
+                    
+                    ctx.save();
+                    ctx.globalAlpha = alpha;
+                    ctx.translate(
+                        this.x * CELL_SIZE + CELL_SIZE / 2,
+                        this.y * CELL_SIZE + CELL_SIZE / 2
+                    );
+                    ctx.scale(scale, scale);
+                    ctx.fillStyle = this.color;
+                    ctx.fillRect(
+                        -CELL_SIZE / 2 + 1,
+                        -CELL_SIZE / 2 + 1,
+                        CELL_SIZE - 2,
+                        CELL_SIZE - 2
+                    );
+                    ctx.restore();
+                } else if (this.type === 'fall') {
+                    // Falling animation: smooth transition from start to end position
+                    const currentY = this.startY + (this.endY - this.startY) * progress;
+                    ctx.fillStyle = this.color;
+                    ctx.fillRect(
+                        this.x * CELL_SIZE,
+                        currentY * CELL_SIZE,
+                        CELL_SIZE - 2,
+                        CELL_SIZE - 2
+                    );
+                }
+                
+                return progress < 1;
+            }
+        }
+
+        function initGrid() {
+            for (let i = 0; i < GRID_SIZE; i++) {
+                grid[i] = [];
+                for (let j = 0; j < GRID_SIZE; j++) {
+                    grid[i][j] = COLORS[Math.floor(Math.random() * COLORS.length)];
+                }
+            }
+        }
+
+        function drawGrid() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // Draw static cells
+            for (let i = 0; i < GRID_SIZE; i++) {
+                for (let j = 0; j < GRID_SIZE; j++) {
+                    if (grid[i][j]) {
+                        ctx.fillStyle = grid[i][j];
+                        ctx.fillRect(i * CELL_SIZE, j * CELL_SIZE, CELL_SIZE - 2, CELL_SIZE - 2);
+                    }
+                }
+            }
+
+            // Draw selection highlight
+            if (selectedCell) {
+                ctx.strokeStyle = 'white';
+                ctx.lineWidth = 3;
+                ctx.strokeRect(
+                    selectedCell.x * CELL_SIZE + 2,
+                    selectedCell.y * CELL_SIZE + 2,
+                    CELL_SIZE - 6,
+                    CELL_SIZE - 6
+                );
+            }
+        }
+
+        function animate(currentTime) {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            drawGrid();
+
+            // Draw animated cells
+            animatingCells = animatingCells.filter(cell => cell.draw(currentTime));
+            
+            if (animatingCells.length > 0) {
+                requestAnimationFrame(animate);
+            } else {
+                isAnimating = false;
+            }
+        }
+
+        function swapCells(cell1, cell2) {
+            const temp = grid[cell1.x][cell1.y];
+            grid[cell1.x][cell1.y] = grid[cell2.x][cell2.y];
+            grid[cell2.x][cell2.y] = temp;
+        }
+
+        function findMatches() {
+            const matches = new Set();
+
+            // Check horizontal matches
+            for (let i = 0; i < GRID_SIZE; i++) {
+                for (let j = 0; j < GRID_SIZE - 2; j++) {
+                    if (grid[i][j] && grid[i][j] === grid[i][j+1] && grid[i][j] === grid[i][j+2]) {
+                        matches.add(`${i},${j}`);
+                        matches.add(`${i},${j+1}`);
+                        matches.add(`${i},${j+2}`);
+                    }
+                }
+            }
+
+            // Check vertical matches
+            for (let i = 0; i < GRID_SIZE - 2; i++) {
+                for (let j = 0; j < GRID_SIZE; j++) {
+                    if (grid[i][j] && grid[i][j] === grid[i+1][j] && grid[i][j] === grid[i+2][j]) {
+                        matches.add(`${i},${j}`);
+                        matches.add(`${i+1},${j}`);
+                        matches.add(`${i+2},${j}`);
+                    }
+                }
+            }
+
+            return Array.from(matches).map(coord => {
+                const [x, y] = coord.split(',').map(Number);
+                return {x, y};
+            });
+        }
+
+        function removeMatches(matches) {
+            const currentTime = performance.now();
+            
+            matches.forEach(cell => {
+                // Add clearing animation
+                animatingCells.push(
+                    new AnimatedCell(
+                        cell.x,
+                        cell.y,
+                        grid[cell.x][cell.y],
+                        currentTime,
+                        'clear'
+                    )
+                );
+                grid[cell.x][cell.y] = null;
+            });
+            
+            score += matches.length;
+            scoreElement.textContent = `Score: ${score}`;
+        }
+
+        function fillEmptyCells() {
+            const currentTime = performance.now();
+
+            for (let i = 0; i < GRID_SIZE; i++) {
+                let emptyCount = 0;
+                for (let j = GRID_SIZE - 1; j >= 0; j--) {
+                    if (grid[i][j] === null) {
+                        emptyCount++;
+                    } else if (emptyCount > 0) {
+                        // Add falling animation
+                        animatingCells.push(
+                            new AnimatedCell(
+                                i,
+                                j + emptyCount,
+                                grid[i][j],
+                                currentTime,
+                                'fall'
+                            )
+                        );
+                        grid[i][j + emptyCount] = grid[i][j];
+                        grid[i][j] = null;
+                    }
+                }
+                
+                // Fill top empty cells with new colors
+                for (let j = 0; j < emptyCount; j++) {
+                    const newColor = COLORS[Math.floor(Math.random() * COLORS.length)];
+                    animatingCells.push(
+                        new AnimatedCell(
+                            i,
+                            j,
+                            newColor,
+                            currentTime,
+                            'fall'
+                        )
+                    );
+                    grid[i][j] = newColor;
+                }
+            }
+
+            if (!isAnimating) {
+                isAnimating = true;
+                requestAnimationFrame(animate);
+            }
+        }
+
+        async function handleClick(event) {
+            if (isAnimating) return;
+
+            const rect = canvas.getBoundingClientRect();
+            const x = Math.floor((event.clientX - rect.left) / CELL_SIZE);
+            const y = Math.floor((event.clientY - rect.top) / CELL_SIZE);
+
+            if (selectedCell === null) {
+                selectedCell = {x, y};
+            } else {
+                if ((Math.abs(selectedCell.x - x) === 1 && selectedCell.y === y) ||
+                    (Math.abs(selectedCell.y - y) === 1 && selectedCell.x === x)) {
+                    swapCells(selectedCell, {x, y});
+                    const matches = findMatches();
+                    if (matches.length > 0) {
+                        removeMatches(matches);
+                        fillEmptyCells();
+                        
+                        // Wait for animations to complete
+                        await new Promise(resolve => {
+                            const checkAnimations = () => {
+                                if (!isAnimating) {
+                                    resolve();
+                                } else {
+                                    setTimeout(checkAnimations, 50);
+                                }
+                            };
+                            checkAnimations();
+                        });
+
+                        // Check for cascading matches
+                        while (findMatches().length > 0) {
+                            removeMatches(findMatches());
+                            fillEmptyCells();
+                            
+                            // Wait for animations to complete
+                            await new Promise(resolve => {
+                                const checkAnimations = () => {
+                                    if (!isAnimating) {
+                                        resolve();
+                                    } else {
+                                        setTimeout(checkAnimations, 50);
+                                    }
+                                };
+                                checkAnimations();
+                            });
+                        }
+                    } else {
+                        swapCells(selectedCell, {x, y});
+                    }
+                }
+                selectedCell = null;
+            }
+
+            drawGrid();
+        }
+
+        canvas.addEventListener('click', handleClick);
+
+        initGrid();
+        drawGrid();
+
+        // Initial check for matches
+        let initialMatches = findMatches();
+        while (initialMatches.length > 0) {
+            removeMatches(initialMatches);
+            fillEmptyCells();
+            initialMatches = findMatches();
+        }
+        drawGrid();
+    </script>
+</body>
+</html>

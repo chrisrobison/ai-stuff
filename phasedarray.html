@@ -1,0 +1,510 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Phased Array Beam Focusing Simulator</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+        h1, h2 {
+            color: #333;
+        }
+        h1 {
+            margin-top: 0;
+            margin-bottom: 15px;
+        }
+        h2 {
+            margin-top: 0;
+            font-size: 1.2em;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+            font-size: 0.9em;
+        }
+        input, select {
+            width: 100%;
+            padding: 6px;
+            margin-bottom: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        /* Desktop Layout */
+        @media (min-width: 768px) {
+            .main-content {
+                display: flex;
+                gap: 20px;
+                height: calc(100vh - 100px);
+                min-height: 500px;
+            }
+            .controls {
+                width: 300px;
+                flex-shrink: 0;
+                overflow-y: auto;
+            }
+            .simulation-area {
+                flex-grow: 1;
+                display: flex;
+                flex-direction: column;
+            }
+            .canvas-container {
+                flex-grow: 1;
+            }
+            canvas {
+                height: 100%;
+                min-height: 400px;
+            }
+            .info-panel {
+                max-height: 150px;
+            }
+        }
+        /* Mobile Layout */
+        @media (max-width: 767px) {
+            .main-content {
+                display: flex;
+                flex-direction: column;
+                gap: 20px;
+            }
+            .controls {
+                order: 2;
+            }
+            .simulation-area {
+                order: 1;
+            }
+            .preset-buttons {
+                flex-direction: column;
+            }
+            canvas {
+                height: 300px;
+            }
+        }
+        .controls, .canvas-container, .info-panel {
+            background-color: #fff;
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .control-group {
+            margin-bottom: 15px;
+        }
+        canvas {
+            display: block;
+            width: 100%;
+            border: 1px solid #ddd;
+            background-color: #000;
+        }
+        button {
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            padding: 8px 12px;
+            text-align: center;
+            text-decoration: none;
+            display: inline-block;
+            font-size: 14px;
+            margin: 4px 2px;
+            cursor: pointer;
+            border-radius: 4px;
+            width: 100%;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        .preset-buttons {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+        .legend {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            margin-top: 10px;
+            font-size: 0.9em;
+        }
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        .legend-color {
+            width: 16px;
+            height: 16px;
+        }
+        .param-value {
+            display: inline-block;
+            width: 30px;
+            text-align: right;
+            font-size: 0.9em;
+        }
+        .info-panel p {
+            margin: 5px 0;
+            font-size: 0.9em;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Phased Array Beam Focusing Simulator</h1>
+        
+        <div class="main-content">
+            <div class="controls">
+                <div class="control-group">
+                    <h2>Array Configuration</h2>
+                    <div class="preset-buttons">
+                        <button id="preset1">Preset 1: Standard Array</button>
+                        <button id="preset2">Preset 2: High Resolution</button>
+                        <button id="preset3">Preset 3: Long Range</button>
+                    </div>
+                   
+                    <form oninput="updateSimulation()" onsubmit="return false">
+
+                    <label for="numElements">Number of Transducers: <span id="numElementsValue" class="param-value">16</span></label>
+                    <input type="range" id="numElements" min="3" max="64" value="16" oninput="document.getElementById('numElementsValue').textContent = this.value">
+                    
+                    <label for="elementSpacing">Element Spacing (λ): <span id="elementSpacingValue" class="param-value">0.5</span></label>
+                    <input type="range" id="elementSpacing" min="0.1" max="2" value="0.5" step="0.1" oninput="document.getElementById('elementSpacingValue').textContent = this.value">
+                    
+                    <label for="frequency">Frequency (kHz): <span id="frequencyValue" class="param-value">200</span></label>
+                    <input type="range" id="frequency" min="10" max="500" value="200" step="10" oninput="document.getElementById('frequencyValue').textContent = this.value">
+                
+                    <h2>Beam Control</h2>
+                    <label for="focusDepth">Focus Depth (m): <span id="focusDepthValue" class="param-value">50</span></label>
+                    <input type="range" id="focusDepth" min="1" max="100" value="50" oninput="document.getElementById('focusDepthValue').textContent = this.value">
+                    
+                    <label for="steeringAngle">Steering Angle (°): <span id="steeringAngleValue" class="param-value">0</span></label>
+                    <input type="range" id="steeringAngle" min="-45" max="45" value="0" oninput="document.getElementById('steeringAngleValue').textContent = this.value">
+                    
+                    <label for="waterType">Water Type:</label>
+                    <select id="waterType">
+                        <option value="freshwater">Freshwater (1480 m/s)</option>
+                        <option value="seawater" selected>Seawater (1500 m/s)</option>
+                        <option value="deep">Deep Ocean (1550 m/s)</option>
+                    </select>
+                    </form>
+                    
+                    <button id="updateButton">Update Simulation</button>
+                </div>
+            </div>
+            
+            <div class="simulation-area">
+                <div class="canvas-container">
+                    <canvas id="simulationCanvas"></canvas>
+                    <div class="legend">
+                        <div class="legend-item">
+                            <div class="legend-color" style="background-color: red;"></div>
+                            <span>High Intensity</span>
+                        </div>
+                        <div class="legend-item">
+                            <div class="legend-color" style="background-color: yellow;"></div>
+                            <span>Medium Intensity</span>
+                        </div>
+                        <div class="legend-item">
+                            <div class="legend-color" style="background-color: blue;"></div>
+                            <span>Low Intensity</span>
+                        </div>
+                        <div class="legend-item">
+                            <div class="legend-color" style="background-color: white;"></div>
+                            <span>Transducers</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="info-panel">
+                    <h2>Simulation Results</h2>
+                    <div style="display: flex; flex-wrap: wrap;">
+                        <p id="wavelength" style="margin-right: 20px;">Wavelength: </p>
+                        <p id="beamwidth" style="margin-right: 20px;">Beamwidth: </p>
+                        <p id="resolution">Resolution: </p>
+                    </div>
+                    <div style="display: flex; flex-wrap: wrap;">
+                        <p id="mainlobeWidth" style="margin-right: 20px;">Main Lobe Width: </p>
+                        <p id="sidelobeLevel">Side Lobe Level: </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Get canvas and context
+        const canvas = document.getElementById('simulationCanvas');
+        const ctx = canvas.getContext('2d');
+
+        // Set canvas dimensions
+        function resizeCanvas() {
+            canvas.width = canvas.clientWidth;
+            canvas.height = canvas.clientHeight;
+        }
+        resizeCanvas();
+        window.addEventListener('resize', resizeCanvas);
+
+        // Simulation variables
+        let numElements = 16;
+        let elementSpacing = 0.5; // in wavelengths
+        let frequency = 200; // kHz
+        let focusDepth = 50; // meters
+        let steeringAngle = 0; // degrees
+        let soundSpeed = 1500; // m/s (seawater)
+        
+        // Animation variables
+        let animationId;
+        let time = 0;
+        
+        // Simulation parameters
+        const simDepth = 100; // meters
+        const simWidth = 100; // meters
+        
+        // Update values based on inputs
+        function getInputValues() {
+            numElements = parseInt(document.getElementById('numElements').value);
+            elementSpacing = parseFloat(document.getElementById('elementSpacing').value);
+            frequency = parseInt(document.getElementById('frequency').value);
+            focusDepth = parseInt(document.getElementById('focusDepth').value);
+            steeringAngle = parseInt(document.getElementById('steeringAngle').value);
+            
+            const waterType = document.getElementById('waterType').value;
+            if (waterType === 'freshwater') soundSpeed = 1480;
+            else if (waterType === 'seawater') soundSpeed = 1500;
+            else if (waterType === 'deep') soundSpeed = 1550;
+            
+            // Update display values
+            document.getElementById('numElementsValue').textContent = numElements;
+            document.getElementById('elementSpacingValue').textContent = elementSpacing;
+            document.getElementById('frequencyValue').textContent = frequency;
+            document.getElementById('focusDepthValue').textContent = focusDepth;
+            document.getElementById('steeringAngleValue').textContent = steeringAngle;
+        }
+        
+        // Calculate wave interference at a point
+        function calculateIntensity(x, y, time) {
+            const wavelength = soundSpeed / (frequency * 1000); // meters
+            const k = 2 * Math.PI / wavelength; // wave number
+            const omega = 2 * Math.PI * frequency * 1000; // angular frequency
+            
+            let totalReal = 0;
+            let totalImag = 0;
+            
+            // Convert steering angle to radians
+            const steeringRad = steeringAngle * Math.PI / 180;
+            
+            // Calculate array center position
+            const arrayWidth = (numElements - 1) * elementSpacing * wavelength;
+            const arrayCenter = arrayWidth / 2;
+            
+            for (let i = 0; i < numElements; i++) {
+                // Position of this element
+                const elemX = i * elementSpacing * wavelength - arrayCenter;
+                const elemY = 0;
+                
+                // Distance from this element to the point (x,y)
+                const dx = x - elemX;
+                const dy = y - elemY;
+                const distance = Math.sqrt(dx*dx + dy*dy);
+                
+                // Calculate phase delay for focusing and steering
+                let phaseDelay = 0;
+                
+                // Phase for focusing
+                if (focusDepth > 0) {
+                    const focusX = Math.sin(steeringRad) * focusDepth;
+                    const focusY = Math.cos(steeringRad) * focusDepth;
+                    const dxFocus = focusX - elemX;
+                    const dyFocus = focusY - elemY;
+                    const distanceToFocus = Math.sqrt(dxFocus*dxFocus + dyFocus*dyFocus);
+                    phaseDelay = -k * distanceToFocus;
+                }
+                
+                // Phase for steering (additional component)
+                phaseDelay += k * elemX * Math.sin(steeringRad);
+                
+                // Compute the complex wave at this point from this element
+                const phase = omega * time - k * distance + phaseDelay;
+                totalReal += Math.cos(phase);
+                totalImag += Math.sin(phase);
+            }
+            
+            // Calculate intensity as square of amplitude
+            return Math.sqrt(totalReal*totalReal + totalImag*totalImag) / numElements;
+        }
+        
+        // Draw the simulation
+        function drawSimulation() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            const pixelsPerMeterX = canvas.width / simWidth;
+            const pixelsPerMeterY = canvas.height / simDepth;
+            
+            // Calculate array center position
+            const wavelength = soundSpeed / (frequency * 1000); // meters
+            const arrayWidth = (numElements - 1) * elementSpacing * wavelength;
+            const arrayCenter = simWidth / 2;
+            const arrayStart = arrayCenter - arrayWidth / 2;
+            
+            // Adjust resolution based on screen size for performance
+            let resolution = 3; // Default pixels per sample
+            if (canvas.width < 500) {
+                resolution = 4; // Lower resolution for smaller screens
+            } else if (canvas.width > 1200) {
+                resolution = 2; // Higher resolution for larger screens
+            }
+            
+            // Draw intensity field
+            for (let pixelY = 0; pixelY < canvas.height; pixelY += resolution) {
+                for (let pixelX = 0; pixelX < canvas.width; pixelX += resolution) {
+                    const x = pixelX / pixelsPerMeterX - simWidth / 2;
+                    const y = pixelY / pixelsPerMeterY;
+                    
+                    const intensity = calculateIntensity(x, y, time);
+                    
+                    // Map intensity to color (blue->yellow->red)
+                    let r = 0, g = 0, b = 0;
+                    if (intensity < 0.5) {
+                        // Blue to yellow
+                        const t = intensity * 2;
+                        r = Math.floor(255 * t);
+                        g = Math.floor(255 * t);
+                        b = Math.floor(255 * (1 - t));
+                    } else {
+                        // Yellow to red
+                        const t = (intensity - 0.5) * 2;
+                        r = 255;
+                        g = Math.floor(255 * (1 - t));
+                        b = 0;
+                    }
+                    
+                    ctx.fillStyle = `rgb(${r}, ${g}, ${b})`;
+                    ctx.fillRect(pixelX, pixelY, resolution, resolution);
+                }
+            }
+            
+            // Draw transducer elements
+            ctx.fillStyle = 'white';
+            for (let i = 0; i < numElements; i++) {
+                const elemX = arrayStart + i * elementSpacing * wavelength;
+                ctx.fillRect(
+                    elemX * pixelsPerMeterX - 2, 
+                    0, 
+                    4, 
+                    8
+                );
+            }
+            
+            // Draw focus point
+            if (focusDepth > 0) {
+                const steeringRad = steeringAngle * Math.PI / 180;
+                const focusX = (arrayCenter + Math.sin(steeringRad) * focusDepth) * pixelsPerMeterX;
+                const focusY = Math.cos(steeringRad) * focusDepth * pixelsPerMeterY;
+                
+                ctx.strokeStyle = 'white';
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.arc(focusX, focusY, 5, 0, 2 * Math.PI);
+                ctx.stroke();
+            }
+            
+            time += 0.05; // Increment time for animation
+            
+            // Update info panel
+            updateInfoPanel();
+            
+            animationId = requestAnimationFrame(drawSimulation);
+        }
+        
+        function updateInfoPanel() {
+            const wavelength = soundSpeed / (frequency * 1000); // meters
+            document.getElementById('wavelength').textContent = `Wavelength: ${wavelength.toFixed(3)} m`;
+            
+            // Calculate theoretical beamwidth using array theory
+            const arrayLength = (numElements - 1) * elementSpacing * wavelength;
+            const beamwidth = Math.atan(wavelength / arrayLength) * 180 / Math.PI;
+            document.getElementById('beamwidth').textContent = `Estimated Beamwidth: ${beamwidth.toFixed(2)}°`;
+            
+            // Calculate theoretical resolution
+            const resolution = focusDepth * Math.tan(beamwidth * Math.PI / 180);
+            document.getElementById('resolution').textContent = `Theoretical Resolution: ${resolution.toFixed(2)} m at ${focusDepth}m depth`;
+            
+            // Rough calculation of main lobe width at focus depth
+            const mainLobeWidth = 2 * focusDepth * Math.tan((beamwidth/2) * Math.PI / 180);
+            document.getElementById('mainlobeWidth').textContent = `Main Lobe Width at Focus: ${mainLobeWidth.toFixed(2)} m`;
+            
+            // Side lobe level estimation (simplified)
+            const sidelobeLevel = -13 * Math.log10(numElements);
+            document.getElementById('sidelobeLevel').textContent = `Side Lobe Level: approximately ${sidelobeLevel.toFixed(1)} dB below main lobe`;
+        }
+        
+        function updateSimulation() {
+                cancelAnimationFrame(animationId);
+                getInputValues();
+                time = 0;
+                drawSimulation();
+        }
+        // Initialize simulation on load
+        window.onload = function() {
+            getInputValues();
+            drawSimulation();
+            
+            // Add event listeners for controls
+            document.getElementById('updateButton').addEventListener('click', updateSimulation);
+            
+            // Preset buttons
+            document.getElementById('preset1').addEventListener('click', function() {
+                // Standard Array
+                document.getElementById('numElements').value = 16;
+                document.getElementById('elementSpacing').value = 0.5;
+                document.getElementById('frequency').value = 200;
+                document.getElementById('focusDepth').value = 50;
+                document.getElementById('steeringAngle').value = 0;
+                document.getElementById('waterType').value = 'seawater';
+                
+                cancelAnimationFrame(animationId);
+                getInputValues();
+                time = 0;
+                drawSimulation();
+            });
+            
+            document.getElementById('preset2').addEventListener('click', function() {
+                // High Resolution
+                document.getElementById('numElements').value = 32;
+                document.getElementById('elementSpacing').value = 0.6;
+                document.getElementById('frequency').value = 350;
+                document.getElementById('focusDepth').value = 30;
+                document.getElementById('steeringAngle').value = 0;
+                document.getElementById('waterType').value = 'seawater';
+                
+                cancelAnimationFrame(animationId);
+                getInputValues();
+                time = 0;
+                drawSimulation();
+            });
+            
+            document.getElementById('preset3').addEventListener('click', function() {
+                // Long Range
+                document.getElementById('numElements').value = 24;
+                document.getElementById('elementSpacing').value = 1.0;
+                document.getElementById('frequency').value = 50;
+                document.getElementById('focusDepth').value = 80;
+                document.getElementById('steeringAngle').value = 15;
+                document.getElementById('waterType').value = 'deep';
+                
+                cancelAnimationFrame(animationId);
+                getInputValues();
+                time = 0;
+                drawSimulation();
+            });
+        };
+    </script>
+</body>
+</html>

@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interactive Spirograph</title>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary-color: #5465ff;
+            --secondary-color: #788bff;
+            --background-color: #f8f9fa;
+            --card-color: #ffffff;
+            --text-color: #333333;
+            --border-radius: 8px;
+            --box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Poppins', Arial, sans-serif;
+            background-color: var(--background-color);
+            color: var(--text-color);
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        h1 {
+            color: var(--primary-color);
+            margin-bottom: 10px;
+        }
+
+        .main-content {
+            display: flex;
+            flex-direction: row;
+            gap: 20px;
+            flex: 1;
+        }
+
+        .controls-panel {
+            background-color: var(--card-color);
+            padding: 20px;
+            border-radius: var(--border-radius);
+            box-shadow: var(--box-shadow);
+            flex: 0 0 300px;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            max-height: 600px;
+        }
+
+        .canvas-container {
+            flex: 1;
+            background-color: var(--card-color);
+            border-radius: var(--border-radius);
+            box-shadow: var(--box-shadow);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 10px;
+            min-height: 600px;
+        }
+
+        .control-group {
+            display: flex;
+            flex-direction: column;
+        }
+
+        label {
+            margin-bottom: 5px;
+            font-weight: 500;
+            color: var(--primary-color);
+        }
+
+        .slider-container {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        input[type="range"] {
+            flex: 1;
+            height: 5px;
+            background-color: #e0e0e0;
+            border-radius: 5px;
+            -webkit-appearance: none;
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: var(--primary-color);
+            cursor: pointer;
+        }
+
+        input[type="range"]:focus {
+            outline: none;
+        }
+
+        .value-display {
+            font-size: 0.9em;
+            color: #666;
+            min-width: 35px;
+            text-align: right;
+        }
+
+        canvas {
+            border-radius: var(--border-radius);
+            max-width: 100%;
+            height: auto;
+        }
+
+        .button-container {
+            display: flex;
+            gap: 10px;
+            margin-top: 10px;
+        }
+
+        button {
+            padding: 8px 16px;
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            border-radius: var(--border-radius);
+            cursor: pointer;
+            transition: background-color 0.3s;
+            font-family: 'Poppins', Arial, sans-serif;
+            font-weight: 500;
+        }
+
+        button:hover {
+            background-color: var(--secondary-color);
+        }
+
+        @media (max-width: 768px) {
+            .main-content {
+                flex-direction: column;
+            }
+
+            .controls-panel {
+                flex: 0 0 auto;
+                max-height: none;
+            }
+
+            .canvas-container {
+                min-height: 400px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Interactive Spirograph</h1>
+        </header>
+        
+        <div class="main-content">
+            <div class="controls-panel">
+                <div class="control-group">
+                    <label for="outerRadius">Outer Circle Radius</label>
+                    <div class="slider-container">
+                        <input type="range" id="outerRadius" min="50" max="150" value="100">
+                        <div class="value-display" id="outerRadiusValue">100</div>
+                    </div>
+                </div>
+                
+                <div class="control-group">
+                    <label for="innerRadius">Inner Circle Radius</label>
+                    <div class="slider-container">
+                        <input type="range" id="innerRadius" min="10" max="90" value="50">
+                        <div class="value-display" id="innerRadiusValue">50</div>
+                    </div>
+                </div>
+                
+                <div class="control-group">
+                    <label for="penOffset">Pen Offset</label>
+                    <div class="slider-container">
+                        <input type="range" id="penOffset" min="20" max="80" value="40">
+                        <div class="value-display" id="penOffsetValue">40</div>
+                    </div>
+                </div>
+                
+                <div class="control-group">
+                    <label for="speed">Animation Speed</label>
+                    <div class="slider-container">
+                        <input type="range" id="speed" min="1" max="10" value="5">
+                        <div class="value-display" id="speedValue">5</div>
+                    </div>
+                </div>
+                
+                <div class="control-group">
+                    <label for="colorHue">Color Hue</label>
+                    <div class="slider-container">
+                        <input type="range" id="colorHue" min="0" max="360" value="180">
+                        <div class="value-display" id="colorHueValue">180</div>
+                    </div>
+                </div>
+                
+                <div class="button-container">
+                    <button id="resetBtn">Reset</button>
+                    <button id="downloadBtn">Download</button>
+                </div>
+            </div>
+            
+            <div class="canvas-container">
+                <canvas id="spirograph" width="800" height="600"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('spirograph');
+        const ctx = canvas.getContext('2d');
+        let animationId;
+        let angle = 0;
+        let path = [];
+
+        // Initialize controls
+        const controls = {
+            outerRadius: document.getElementById('outerRadius'),
+            innerRadius: document.getElementById('innerRadius'),
+            penOffset: document.getElementById('penOffset'),
+            speed: document.getElementById('speed'),
+            colorHue: document.getElementById('colorHue')
+        };
+
+        // Add buttons
+        const resetBtn = document.getElementById('resetBtn');
+        const downloadBtn = document.getElementById('downloadBtn');
+
+        // Update value displays
+        Object.keys(controls).forEach(key => {
+            const valueDisplay = document.getElementById(`${key}Value`);
+            controls[key].addEventListener('input', (e) => {
+                valueDisplay.textContent = e.target.value;
+                if (key !== 'speed') {
+                    // Reset drawing when parameters change
+                    resetDrawing();
+                }
+            });
+        });
+
+        function resetDrawing() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            path = [];
+            angle = 0;
+        }
+
+        function drawSpirograph() {
+            const centerX = canvas.width / 2;
+            const centerY = canvas.height / 2;
+            const R = parseInt(controls.outerRadius.value);
+            const r = parseInt(controls.innerRadius.value);
+            const d = parseInt(controls.penOffset.value);
+            const speed = parseInt(controls.speed.value);
+            const hue = parseInt(controls.colorHue.value);
+
+            // Calculate position
+            const k = r / R;
+            const l = d / r;
+            const x = R * ((1 - k) * Math.cos(angle) + l * k * Math.cos((1 - k) * angle / k));
+            const y = R * ((1 - k) * Math.sin(angle) - l * k * Math.sin((1 - k) * angle / k));
+
+            // Add point to path
+            path.push({ x: centerX + x, y: centerY + y });
+
+            // Draw entire path
+            ctx.beginPath();
+            ctx.strokeStyle = `hsl(${hue}, 70%, 50%)`;
+            ctx.lineWidth = 2;
+            
+            path.forEach((point, index) => {
+                if (index === 0) {
+                    ctx.moveTo(point.x, point.y);
+                } else {
+                    ctx.lineTo(point.x, point.y);
+                }
+            });
+            
+            ctx.stroke();
+
+            // Update angle
+            angle += (0.02 * speed);
+
+            // Check if pattern is complete
+            const period = 2 * Math.PI * r / gcd(R, r);
+            if (angle < period) {
+                animationId = requestAnimationFrame(drawSpirograph);
+            }
+        }
+
+        function gcd(a, b) {
+            return b === 0 ? a : gcd(b, a % b);
+        }
+
+        // Button event listeners
+        resetBtn.addEventListener('click', () => {
+            cancelAnimationFrame(animationId);
+            resetDrawing();
+            drawSpirograph();
+        });
+
+        downloadBtn.addEventListener('click', () => {
+            const dataURL = canvas.toDataURL('image/png');
+            const link = document.createElement('a');
+            link.download = 'spirograph.png';
+            link.href = dataURL;
+            link.click();
+        });
+
+        // Responsive canvas
+        function resizeCanvas() {
+            const container = document.querySelector('.canvas-container');
+            const width = container.clientWidth - 20; // Subtract padding
+            const height = Math.min(600, width * 0.75);
+            
+            if (width < 800) {
+                canvas.width = width;
+                canvas.height = height;
+                resetDrawing();
+                drawSpirograph();
+            }
+        }
+
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+
+        // Start animation
+        drawSpirograph();
+
+        // Add event listeners for parameter changes
+        Object.values(controls).forEach(control => {
+            control.addEventListener('input', () => {
+                if (control.id !== 'speed' && control.id !== 'colorHue') {
+                    cancelAnimationFrame(animationId);
+                    resetDrawing();
+                    drawSpirograph();
+                }
+            });
+        });
+    </script>
+</body>
+</html>

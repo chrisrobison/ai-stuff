@@ -1,0 +1,462 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<head>
+    <meta charset="utf-8">
+    <title>AI-Assisted Projects Gallery</title>
+    <link href="https://fonts.googleapis.com/css2?family=Lexend:wght@100..800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" integrity="sha512-iecdLmaskl7CVkqkXNQ/ZH/XLlvWZOJyj7Yy7tcenmpD1ypASozpmT/E0iPtmFIB46ZmdtAc9eNBvH0H/ZpiBw==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+    <style>
+        :root {
+            --primary-color: #3a506b;
+            --secondary-color: #5bc0be;
+            --background-color: #f8f9fa;
+            --text-color: #212529;
+            --header-background: #1c2541;
+            --header-color: #ffffff;
+            --card-background: #ffffff;
+            --card-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            --hover-color: #6fffe9;
+            box-sizing: border-box;
+            font-family: "Lexend", "Helvetica Neue", "Helvetica", sans-serif;
+            font-size: 18px;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            background-color: var(--background-color);
+            color: var(--text-color);
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
+            line-height: 1.6;
+        }
+
+        header {
+            background-color: var(--header-background);
+            color: var(--header-color);
+            padding: 2rem 1rem;
+            text-align: center;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        header h1 {
+            margin-bottom: 0.5rem;
+            font-weight: 700;
+        }
+
+        header h2 {
+            font-weight: 400;
+            font-style: italic;
+            font-size: 1.2rem;
+            margin-top: 0.5rem;
+        }
+
+        .container {
+            width: 90%;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem 0;
+        }
+
+        main {
+            flex: 1;
+            padding: 1rem 0;
+        }
+
+        .intro {
+            background-color: var(--card-background);
+            padding: 2rem;
+            border-radius: 8px;
+            box-shadow: var(--card-shadow);
+            margin-bottom: 2rem;
+            text-align: left;
+        }
+
+        .intro p {
+            margin-bottom: 1rem;
+        }
+
+        .project-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 2rem;
+        }
+
+        .project-card {
+            background-color: var(--card-background);
+            border-radius: 8px;
+            box-shadow: var(--card-shadow);
+            padding: 1.5rem;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        .project-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
+        }
+
+        .project-card a {
+            color: var(--primary-color);
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 1.2rem;
+            display: block;
+            margin-bottom: 0.5rem;
+            transition: color 0.3s ease;
+        }
+
+        .project-card a i {
+            margin-right: 0.5rem;
+            color: var(--secondary-color);
+        }
+
+        .project-card a:hover {
+            color: var(--secondary-color);
+        }
+        
+        .project-card a:hover i {
+            transform: scale(1.2);
+            transition: transform 0.2s ease;
+        }
+
+        .project-card p {
+            color: var(--text-color);
+            font-size: 0.9rem;
+        }
+
+        footer {
+            background-color: var(--header-background);
+            color: var(--header-color);
+            text-align: center;
+            padding: 1rem;
+            margin-top: 2rem;
+        }
+
+        @media (max-width: 768px) {
+            :root {
+                font-size: 16px;
+            }
+
+            .project-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .container {
+                width: 95%;
+            }
+        }
+        .screenshot {
+            height: 150px;
+            overflow: hidden;
+            text-align: center;
+            margin-bottom: 1em;
+            background: #0001;
+        }
+        .project-card img {
+            max-width: 250px;
+            max-height: 200px;
+            overflow: hidden;
+            margin-left: auto;
+            margin-right: auto;
+        }
+    </style>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/js/all.min.js" integrity="sha512-fD9DI5bZwQxOi7MhYWnnNPlvXdp/2Pj3XSTRrFs5FQa4mizyGLnJcN6tuvUS6LbmgN1ut+XGSABKvjN0H6Aoow==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+</head>
+<body>
+    <header>
+        <h1>AI-Assisted Creative Coding Projects</h1>
+        <h2>My Journey of Exploration with AI Collaboration</h2>
+    </header>
+
+    <div class="container">
+        <main>
+            <section class="intro">
+                <p>Welcome to my gallery of AI-assisted creative coding experiments! Each project here represents a blend of human curiosity and AI capability. These are small, one-off projects that I've created with the help of AI, exploring concepts that have always intrigued me or implementing ideas I've wanted to try.</p>
+                
+                <p>One of the interesting things about these collaborations is that I would never have taken the time and effort to build many of these projects without AI assistance. Some are playful experiments, others are clever concepts with rough implementations, and a few might still have some quirks to work out. But they all represent moments of creative exploration and learning.</p>
+                
+                <p>This collection continues to grow as I discover new concepts to explore. Feel free to click on any project that catches your interest!</p>
+            </section>
+
+            <section class="project-grid">
+                <div class="project-card">
+                    <a target="_blank" href="/ai/you-may-ask.html"><img src="img/wheel.svg" width="22"> "You May Ask Yourself" Wheel
+                        <div class="screenshot"><img src="img/ask.png"></div>
+                        <p>A fun little nostalgic wheel of fortune with audio and a suprise guest!</p>
+                    </a>
+                </div>
+                <div class="project-card">
+                    <a target="_blank" href="/spectrogram/"><img src="img/osc.svg" width="22"> Image to Audio Spectrogram
+                        <div class="screenshot"><img src="img/spectro.gif"></div>
+                        <p>A spectrogram viewer that can also encode an image into an audio file. 
+                            The image will be displayed when the audio is viewed in the spectrograph.</p>
+                    </a>
+                </div>
+
+                <div class="project-card">
+                    <a target="_blank" href="mouths/"><img src="mouth.svg" width="32"> Cartoon Mouth Animator
+                        <div class="screenshot"><img src="mouths/toonmouth.gif"></div>
+                        <p>A tool to automate animating mouth positions for an idea I have for a web cartoon language and platform. </p>
+                    </a>
+                </div>
+
+                <div class="project-card">
+                    <a target="_blank" href="/oscilloscope.html"><img src="img/osc.svg" width="22"> Online Oscilloscope
+                        <div class="screenshot"><img src="img/oscilloscope.gif"></div>
+                        <p>An oscilloscope view using your computer's microphone as the signal.</p>
+                    </a>
+                </div>
+                
+                <div class="project-card">
+                    <a target="_blank" href="vote-weight.html"><i class="fa-solid fa-check-to-slot"></i> Electoral Vote Weight
+                        <div class="screenshot"><img src="img/vote-weight.png"></div>
+                        <p>A data visualization showing the weight of an individuals vote for US President between the largest and smallest states.</p>
+                    </a>
+                </div>
+
+                <div class="project-card">
+                    <a target="_blank" href="/news/"><i class="fas fa-newspaper"></i> News Aggregator
+                        <div class="screenshot"><img src="img/news.jpg"></div>
+                        <p>A simple news feed that might collect and display articles from various sources based on interests.</p>
+                    </a>
+                </div>
+
+                <div class="project-card">
+                    <a target="_blank" href="fluid.html"><i class="fas fa-water"></i> Fluid Simulation
+                        <div class="screenshot"><img src="img/fluid.gif"></div>
+                        <p>An interactive fluid dynamics simulation where you can create ripples and waves of colors with mouse movements.</p>
+                    </a>
+                </div>
+
+                <div class="project-card">
+                    <a target="_blank" href="visualthesaurus.html"><i class="fas fa-project-diagram"></i> Visual Thesaurus
+                        <div class="screenshot"><img src="img/visualthesaurus.gif"></div>
+                        <p>An interactive word web that displays related words and concepts with visual connections between them.</p>
+                    </a>
+                </div>
+                
+                <div class="project-card">
+                    <a target="_blank" href="pov.html"><i class="fas fa-eye"></i> POV Effect
+                        <div class="screenshot"><img src="img/pov.jpg"></div>
+                        <p>A point-of-view simulation that creates an immersive visual experience, possibly with 3D-like effects.</p>
+                    </a>
+                </div>
+                
+                <div class="project-card">
+                    <a target="_blank" href="spirograph.html"><i class="fas fa-drafting-compass"></i> Spirograph
+                        <div class="screenshot"><img src="img/spirograph.jpg"></div>
+                        <p>A digital recreation of the classic spirograph toy, creating intricate geometric patterns with rotating circles.</p>
+                    </a>
+                </div>
+
+                <div class="project-card">
+                    <a target="_blank" href="trippy.html"><i class="fas fa-rainbow"></i> Trippy Visuals
+                        <div class="screenshot"><img src="img/trippy.gif"></div>
+                        <p>Psychedelic, colorful animations that create mesmerizing optical illusions and visual effects.</p>
+                    </a>
+                </div>
+                
+                <div class="project-card">
+                    <a target="_blank" href="pop2.html"><i class="fas fa-soap"></i> Popcorn Animation
+                        <div class="screenshot"><img src="img/popcorn.gif"></div>
+                        <p>A popcorn simulator with ai created physics engine..</p>
+                    </a>
+                </div>
+
+                <div class="project-card">
+                    <a target="_blank" href="circles-ai.html"><i class="far fa-circle"></i> Circles AI
+                        <div class="screenshot"><img src="img/circles.png"></div>
+                        <p>An artistic visualization where AI generates evolving patterns of circles that respond to user interaction.</p>
+                    </a>
+                </div>
+
+                <div class="project-card">
+                    <a target="_blank" href="/sandbox/match3/"><i class="fas fa-puzzle-piece"></i> AI Match 3 (Version B)
+                        <div class="screenshot"><img src="img/match3.gif"></div>
+                        <p>An improved version of the match-three puzzle game with enhanced AI opponent logic and smoother animations.</p>
+                    </a>
+                </div>
+
+                <div class="project-card">
+                    <a target="_blank" href="ai-match3.html"><i class="fas fa-chess-board"></i> AI Match 3
+                        <div class="screenshot"><img src="img/match3b.png"></div>
+                        <p>A colorful match-three puzzle game where you compete against an AI to make the best matches and score points.</p>
+                    </a>
+                </div>
+
+                <div class="project-card">
+                    <a target="_blank" href="balls.html"><i class="fas fa-atom"></i> Balls Physics
+                        <div class="screenshot"><img src="img/balls.png"></div>
+                        <p>A physics simulation showing bouncing balls with realistic momentum, collision, and gravity effects.</p>
+                    </a>
+                </div>
+
+                <div class="project-card">
+                    <a target="_blank" href="flourish.html"><i class="fas fa-seedling"></i> Flourish
+                        <div class="screenshot"></div>
+                        <p>A decorative animation that creates elegant, flowering patterns that grow and evolve over time.</p>
+                    </a>
+                </div>
+
+               <div class="project-card">
+                    <a target="_blank" href="fractal.html"><i class="fas fa-snowflake"></i> Fractal Generator
+                        <div class="screenshot"><img src="img/fractal.jpg"></div>
+                        <p>Explores the beauty of mathematical fractals with interactive controls to zoom and explore infinite patterns.</p>
+                    </a>
+                </div>
+
+                <div class="project-card">
+                    <a target="_blank" href="game.html"><i class="fas fa-gamepad"></i> Simple Game
+                        <div class="screenshot"></div>
+                        <p>A basic browser game with simple mechanics. The start of an angry birds style game.</p>
+                    </a>
+                </div>
+
+                <div class="project-card">
+                    <a target="_blank" href="gold.html"><i class="fas fa-stream"></i> Placer Gold Simulation
+                        <div class="screenshot"><img src="img/placer-gold.jpg"></div>
+                        <p>A simulation modeling how placer gold deposits form in various river configurations based on water flow and speed.</p>
+                    </a>
+                </div>
+
+                <div class="project-card">
+                    <a target="_blank" href="gold2.html"><i class="fas fa-coins"></i> Placer Gold Simulation 2
+                        <div class="screenshot"><img src="img/placer-gold.jpg"></div>
+                        <p>Another variation on the simulatated deposition of placer gold in river environments with improved river configurations and speed variables.</p>
+                    </a>
+                </div>
+
+                <div class="project-card">
+                    <a target="_blank" href="lava.html"><i class="fas fa-fire"></i> Lava Lamp
+                        <div class="screenshot"><img src="img/lavalamp.gif"></div>
+                        <p>A mesmerizing digital lava lamp simulation with colorful, flowing blobs that move realistically.</p>
+                    </a>
+                </div>
+
+                <div class="project-card">
+                    <a target="_blank" href="lissajous.html"><i class="fas fa-wave-square"></i> Lissajous Curves
+                        <div class="screenshot"><img src="img/lissajous.gif"></div>
+                        <p>Generates beautiful Lissajous curve patterns based on mathematical principles with adjustable parameters.</p>
+                    </a>
+                </div>
+
+                <div class="project-card">
+                    <a target="_blank" href="mandelbulb.html"><i class="fas fa-cube"></i> Mandelbulb
+                        <div class="screenshot"></div>
+                        <p>A 3D rendering of the famous Mandelbulb fractal with options to rotate and zoom the complex structure.</p>
+                    </a>
+                </div>
+
+                <div class="project-card">
+                    <a target="_blank" href="map2.html"><i class="fas fa-map-marked-alt"></i> Interactive Map 2
+                        <div class="screenshot"></div>
+                        <p>An enhanced interactive map with additional features like custom markers, routes, or data visualization.</p>
+                    </a>
+                </div>
+
+                <div class="project-card">
+                    <a target="_blank" href="map.html"><i class="fas fa-map"></i> Interactive Map
+                        <div class="screenshot"></div>
+                        <p>A basic interactive map interface, possibly showing locations of interest or custom data overlays.</p>
+                    </a>
+                </div>
+
+                <div class="project-card">
+                    <a target="_blank" href="phasedarray.html"><i class="fas fa-broadcast-tower"></i> Phased Array
+                        <div class="screenshot"></div>
+                        <p>A visualization of phased array technology, possibly simulating wave propagation or antenna patterns.</p>
+                    </a>
+                </div>
+
+                <div class="project-card">
+                    <a target="_blank" href="screensaver.html"><i class="fas fa-desktop"></i> Screensaver
+                        <div class="screenshot"></div>
+                        <p>A relaxing, animated screensaver-style visual that changes subtly over time to prevent screen burn.</p>
+                    </a>
+                </div>
+
+                <div class="project-card">
+                    <a target="_blank" href="solitaire.html"><i class="fas fa-heart"></i> Solitaire
+                        <div class="screenshot"></div>
+                        <p>A classic solitaire card game implementation with drag-and-drop card movement and win detection.</p>
+                    </a>
+                </div>
+
+            </section>
+        </main>
+    </div>
+
+    <footer>
+        <p>&copy; 2025 AI-Assisted Projects Gallery | Created with the help of AI</p>
+    </footer>
+
+    <script>
+    (function() {
+        const $ = str => document.querySelector(str);
+        const $$ = str => document.querySelectorAll(str);
+
+        const app = {
+            data: {},
+            state: {
+                loaded: false
+            },
+            init() {
+                app.state.loaded = true;
+                
+                // Add smooth scrolling
+                document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+                    anchor.addEventListener('click', function (e) {
+                        e.preventDefault();
+                        document.querySelector(this.getAttribute('href')).scrollIntoView({
+                            behavior: 'smooth'
+                        });
+                    });
+                });
+            },
+            fetch(url, callback) {
+                fetch(url).then(response=>response.json()).then(data=>{
+                    app.data = data;
+                    app.state.loaded = true;
+                    if (callback && typeof(callback) === "function") {
+                        callback(data);
+                    }
+                }).catch(error => console.error('Fetch error:', error));
+            },
+            display(data, tgt) {
+                let out = "<table><thead><tr>";
+                const keys = Object.keys(data[0]);
+                if (keys) {
+                    keys.forEach(key => {
+                        out += `<th>${key}</th>`;
+                    });
+                }
+                out += "</tr></thead><tbody>";
+                data.forEach(item=>{
+                    out += `<tr>`;
+                    keys.forEach(key => {
+                        out += `<td>${item[key]}</td>`;
+                    });
+                    out += `</tr>`;
+                });
+                out += "</tbody></table>";
+
+                if (tgt) {
+                    tgt.innerHTML = out;
+                }
+                return out;
+            }
+        }
+        window.app = app;
+        app.init();
+    })();
+    </script>
+</body>
+</html>

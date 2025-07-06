@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Match-3 Game</title>
+    <style>
+        canvas {
+            border: 1px solid black;
+        }
+        #score {
+            font-size: 24px;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="gameCanvas" width="400" height="400"></canvas>
+    <div id="score">Score: 0</div>
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const scoreElement = document.getElementById('score');
+
+        const GRID_SIZE = 8;
+        const CELL_SIZE = 50;
+        const COLORS = ['red', 'blue', 'green', 'yellow', 'purple'];
+
+        let grid = [];
+        let selectedCell = null;
+        let score = 0;
+
+        function initGrid() {
+            for (let i = 0; i < GRID_SIZE; i++) {
+                grid[i] = [];
+                for (let j = 0; j < GRID_SIZE; j++) {
+                    grid[i][j] = COLORS[Math.floor(Math.random() * COLORS.length)];
+                }
+            }
+        }
+
+        function drawGrid() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            for (let i = 0; i < GRID_SIZE; i++) {
+                for (let j = 0; j < GRID_SIZE; j++) {
+                    ctx.fillStyle = grid[i][j];
+                    ctx.fillRect(i * CELL_SIZE, j * CELL_SIZE, CELL_SIZE - 2, CELL_SIZE - 2);
+                    if (selectedCell && selectedCell.x === i && selectedCell.y === j) {
+                        ctx.strokeStyle = 'white';
+                        ctx.lineWidth = 3;
+                        ctx.strokeRect(i * CELL_SIZE + 2, j * CELL_SIZE + 2, CELL_SIZE - 6, CELL_SIZE - 6);
+                    }
+                }
+            }
+        }
+
+        function swapCells(cell1, cell2) {
+            const temp = grid[cell1.x][cell1.y];
+            grid[cell1.x][cell1.y] = grid[cell2.x][cell2.y];
+            grid[cell2.x][cell2.y] = temp;
+        }
+
+        function findMatches() {
+            const matches = new Set();
+
+            // Check horizontal matches
+            for (let i = 0; i < GRID_SIZE; i++) {
+                for (let j = 0; j < GRID_SIZE - 2; j++) {
+                    if (grid[i][j] === grid[i][j+1] && grid[i][j] === grid[i][j+2]) {
+                        matches.add(`${i},${j}`);
+                        matches.add(`${i},${j+1}`);
+                        matches.add(`${i},${j+2}`);
+                    }
+                }
+            }
+
+            // Check vertical matches
+            for (let i = 0; i < GRID_SIZE - 2; i++) {
+                for (let j = 0; j < GRID_SIZE; j++) {
+                    if (grid[i][j] === grid[i+1][j] && grid[i][j] === grid[i+2][j]) {
+                        matches.add(`${i},${j}`);
+                        matches.add(`${i+1},${j}`);
+                        matches.add(`${i+2},${j}`);
+                    }
+                }
+            }
+
+            return Array.from(matches).map(coord => {
+                const [x, y] = coord.split(',').map(Number);
+                return {x, y};
+            });
+        }
+
+        function removeMatches(matches) {
+            matches.forEach(cell => {
+                grid[cell.x][cell.y] = null;
+            });
+            score += matches.length;
+            scoreElement.textContent = `Score: ${score}`;
+        }
+
+        function fillEmptyCells() {
+            for (let i = 0; i < GRID_SIZE; i++) {
+                let emptyCount = 0;
+                for (let j = GRID_SIZE - 1; j >= 0; j--) {
+                    if (grid[i][j] === null) {
+                        emptyCount++;
+                    } else if (emptyCount > 0) {
+                        grid[i][j + emptyCount] = grid[i][j];
+                        grid[i][j] = null;
+                    }
+                }
+                for (let j = 0; j < emptyCount; j++) {
+                    grid[i][j] = COLORS[Math.floor(Math.random() * COLORS.length)];
+                }
+            }
+        }
+
+        function handleClick(event) {
+            const rect = canvas.getBoundingClientRect();
+            const x = Math.floor((event.clientX - rect.left) / CELL_SIZE);
+            const y = Math.floor((event.clientY - rect.top) / CELL_SIZE);
+
+            if (selectedCell === null) {
+                selectedCell = {x, y};
+            } else {
+                if ((Math.abs(selectedCell.x - x) === 1 && selectedCell.y === y) ||
+                    (Math.abs(selectedCell.y - y) === 1 && selectedCell.x === x)) {
+                    swapCells(selectedCell, {x, y});
+                    const matches = findMatches();
+                    if (matches.length > 0) {
+                        removeMatches(matches);
+                        fillEmptyCells();
+                        while (findMatches().length > 0) {
+                            removeMatches(findMatches());
+                            fillEmptyCells();
+                        }
+                    } else {
+                        swapCells(selectedCell, {x, y});
+                    }
+                }
+                selectedCell = null;
+            }
+
+            drawGrid();
+        }
+
+        canvas.addEventListener('click', handleClick);
+
+        initGrid();
+        drawGrid();
+
+        // Initial check for matches
+        let initialMatches = findMatches();
+        while (initialMatches.length > 0) {
+            removeMatches(initialMatches);
+            fillEmptyCells();
+            initialMatches = findMatches();
+        }
+        drawGrid();
+    </script>
+</body>
+</html>

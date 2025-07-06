@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Popcorn Popping Animation</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            background-color: black;
+            cursor: pointer;
+        }
+        canvas {
+            display: block;
+        }
+        .instructions {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            color: #888;
+            font-family: Arial, sans-serif;
+            text-align: center;
+            user-select: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="instructions">Click or touch anywhere to pop some popcorn!</div>
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/matter-js/0.19.0/matter.min.js"></script>
+    <script>
+        // Matter.js module aliases
+        const Engine = Matter.Engine,
+              Render = Matter.Render,
+              Runner = Matter.Runner,
+              Bodies = Matter.Bodies,
+              Composite = Matter.Composite,
+              Body = Matter.Body,
+              Vector = Matter.Vector;
+
+        // Create engine and renderer
+        const engine = Engine.create({
+            gravity: { x: 0, y: 0.5 } // Increased gravity to make popcorn fall faster
+        });
+        const world = engine.world;
+
+        const render = Render.create({
+            element: document.body,
+            engine: engine,
+            options: {
+                width: window.innerWidth,
+                height: window.innerHeight,
+                wireframes: false,
+                background: 'black'
+            }
+        });
+
+        Render.run(render);
+        const runner = Runner.create();
+        Runner.run(runner, engine);
+
+        // Preload popcorn image
+        const popcornImage = new Image();
+        popcornImage.src = 'https://cdr2.com/popcorn.png';
+        
+        // Keep track of popcorn pieces
+        const popcornPieces = [];
+        const maxPopcorn = 400; // Increased limit for popcorn pieces
+        
+        // Create boundaries to keep popcorn contained within the screen
+        function createBoundaries() {
+            const wallThickness = 50;
+            
+            // Ground (slightly visible)
+            const ground = Bodies.rectangle(
+                window.innerWidth / 2, 
+                window.innerHeight + wallThickness / 2 - 10, // Slightly visible at bottom
+                window.innerWidth, 
+                wallThickness, 
+                { 
+                    isStatic: true,
+                    render: { fillStyle: '#111111' } // Dark gray, barely visible
+                }
+            );
+            
+            // Left wall (invisible)
+            const leftWall = Bodies.rectangle(
+                -wallThickness / 2, 
+                window.innerHeight / 2, 
+                wallThickness, 
+                window.innerHeight * 2, 
+                { 
+                    isStatic: true,
+                    render: { visible: false }
+                }
+            );
+            
+            // Right wall (invisible)
+            const rightWall = Bodies.rectangle(
+                window.innerWidth + wallThickness / 2, 
+                window.innerHeight / 2, 
+                wallThickness, 
+                window.innerHeight * 2, 
+                { 
+                    isStatic: true,
+                    render: { visible: false }
+                }
+            );
+            
+            // Add all boundaries to the world
+            Composite.add(world, [ground, leftWall, rightWall]);
+        }
+
+        // Function to create popcorn explosion
+        function createPopcornExplosion(x, y) {
+            const numPieces = 5 + Math.floor(Math.random() * 5); // 5-9 pieces per click
+            
+            for (let i = 0; i < numPieces; i++) {
+                // Remove oldest popcorn if we exceed the max
+                if (popcornPieces.length >= maxPopcorn) {
+                    const oldestPopcorn = popcornPieces.shift();
+                    Composite.remove(world, oldestPopcorn);
+                }
+                
+                // Random size for each popcorn piece
+                const size = 20 + Math.random() * 30;
+                
+                // Create popcorn body
+                const popcorn = Bodies.circle(x, y, size/2, {
+                    friction: 0.05,       // More friction between popcorn
+                    restitution: 0.4,     // Less bouncy
+                    density: 0.001,
+                    frictionAir: 0.01,    // Less air resistance
+                    render: {
+                        sprite: {
+                            texture: popcornImage.src,
+                            xScale: size/100,
+                            yScale: size/100
+                        }
+                    }
+                });
+                
+                // Initial "popping" velocity - stronger upward force
+                const angle = Math.random() * Math.PI * 2;
+                const force = 0.01 + Math.random() * 0.05;
+                Body.applyForce(popcorn, { x, y }, {
+                    x: Math.cos(angle) * force,
+                    y: Math.sin(angle) * force - 0.02 // Stronger upward bias
+                });
+                
+                // Random rotation
+                Body.setAngularVelocity(popcorn, (Math.random() - 0.5) * 0.2);
+                
+                // Add to world and tracking array
+                Composite.add(world, popcorn);
+                popcornPieces.push(popcorn);
+                
+                // We're no longer removing popcorn automatically
+                // They'll gather at the bottom of the screen
+                // Only remove if we exceed maxPopcorn limit
+            }
+        }
+
+        // Handle click/touch events
+        function handleInteraction(event) {
+            let x, y;
+            
+            // Get position depending on event type
+            if (event.touches) {
+                // Touch event
+                x = event.touches[0].clientX;
+                y = event.touches[0].clientY;
+            } else {
+                // Mouse event
+                x = event.clientX;
+                y = event.clientY;
+            }
+            
+            createPopcornExplosion(x, y);
+            
+            // Create a "kernel" sound effect (simulated with just visual feedback)
+            const kernel = Bodies.circle(x, y + 5, 3, {
+                friction: 0.001,
+                restitution: 0.9,
+                density: 0.001,
+                render: {
+                    fillStyle: '#F5DEB3' // Wheat color for kernel
+                }
+            });
+            
+            Composite.add(world, kernel);
+            
+            // Remove kernel after a short time (it "pops" into popcorn)
+            setTimeout(() => {
+                Composite.remove(world, kernel);
+            }, 200);
+        }
+
+        let mouseActive = 0;
+        function doMouseDown(evt) {
+            mouseActive = 1;
+            document.addEventListener("mousemove", doMouseMove);
+            document.addEventListener("mouseup", doMouseUp);
+            handleInteraction(evt);
+        }
+
+        function doMouseUp(evt) {
+            document.removeEventListener("mousemove", doMouseMove);
+            document.removeEventListener("mouseup", doMouseUp);
+        }
+
+        function doMouseMove(evt) {
+            handleInteraction(evt);
+        }
+
+        // Event listeners
+        document.addEventListener('mousedown', doMouseDown);
+        document.addEventListener('touchstart', handleInteraction, { passive: true });
+
+        // Handle window resize
+        window.addEventListener('resize', () => {
+            // Update canvas dimensions
+            render.options.width = window.innerWidth;
+            render.options.height = window.innerHeight;
+            render.canvas.width = window.innerWidth;
+            render.canvas.height = window.innerHeight;
+            
+            // Remove old boundaries
+            Composite.allBodies(world).forEach(body => {
+                if (body.isStatic && !popcornPieces.includes(body)) {
+                    Composite.remove(world, body);
+                }
+            });
+            
+            // Create new boundaries to match new window size
+            createBoundaries();
+        });
+
+        // Create "waiting" popcorn kernel in the center
+        function createInitialKernel() {
+            const centerX = window.innerWidth / 2;
+            const centerY = window.innerHeight / 2;
+            
+            const kernel = Bodies.circle(centerX, centerY, 8, {
+                friction: 0.001,
+                restitution: 0.5,
+                isStatic: true,
+                render: {
+                    fillStyle: '#F5DEB3'
+                }
+            });
+            
+            Composite.add(world, kernel);
+            
+            // Make it "pop" after 2 seconds to guide users
+            setTimeout(() => {
+                Composite.remove(world, kernel);
+                createPopcornExplosion(centerX, centerY);
+            }, 2000);
+        }
+        
+        // Wait for image to load then initialize
+        popcornImage.onload = () => {
+            createBoundaries();
+            createInitialKernel();
+        };
+    </script>
+</body>
+</html>

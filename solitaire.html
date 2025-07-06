@@ -1,0 +1,582 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Solitaire Game</title>
+    <link href="https://fonts.googleapis.com/css2?family=Lexend:wght@100..800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --background-color: #076324;
+            --text-color: #fff;
+            --card-width: 100px;
+            --card-height: 140px;
+            box-sizing: border-box;
+            font-family: "Lexend", "Helvetica Neue", "Helvetica", sans-serif;
+            font-size: 18px;
+        }
+
+        body {
+            background-color: var(--background-color);
+            color: var(--text-color);
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-start;
+            min-height: 100vh;
+        }
+
+        main {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-start;
+            width: 100%;
+            padding: 20px;
+        }
+
+        .game-area {
+            width: 100%;
+            max-width: 900px;
+        }
+
+        .top-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 40px;
+        }
+
+        .tableau {
+            display: flex;
+            justify-content: space-between;
+            gap: 10px;
+        }
+
+        .card {
+            width: var(--card-width);
+            height: var(--card-height);
+            background: white;
+            border-radius: 8px;
+            position: absolute;
+            cursor: move;
+            transform-style: preserve-3d;
+            transition: transform 0.3s;
+            user-select: none;
+        }
+
+        .card.face-up {
+            transform: rotateY(180deg);
+        }
+
+        .waste-pile {
+            position: relative;
+        }
+
+        .waste .card {
+            position: absolute;
+            top: 0;
+            left: 0;
+        }
+
+        .waste .card:nth-last-child(3) {
+            transform: translateX(-40px) rotateY(180deg);
+        }
+
+        .waste .card:nth-last-child(2) {
+            transform: translateX(-20px) rotateY(180deg);
+        }
+
+        .waste .card:nth-last-child(1) {
+            transform: translateX(0) rotateY(180deg);
+        }
+
+        .card.dragging {
+            transform: rotateY(90deg) !important;
+        }
+
+        .card-face {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            backface-visibility: hidden;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+            padding: 10px;
+            box-sizing: border-box;
+            font-size: 24px;
+        }
+
+        .card-back {
+            background: #00008B;
+            background-image: linear-gradient(45deg, #000080 25%, transparent 25%),
+                            linear-gradient(-45deg, #000080 25%, transparent 25%),
+                            linear-gradient(45deg, transparent 75%, #000080 75%),
+                            linear-gradient(-45deg, transparent 75%, #000080 75%);
+            background-size: 20px 20px;
+            border: 2px solid #fff;
+        }
+
+        .card-front {
+            background: white;
+            transform: rotateY(180deg);
+            flex-direction: column;
+        }
+
+        .card-front .top {
+            align-self: flex-start;
+        }
+
+        .card-front .bottom {
+            align-self: flex-end;
+            transform: rotate(180deg);
+        }
+
+        .pile {
+            width: var(--card-width);
+            height: var(--card-height);
+            border: 2px solid rgba(255,255,255,0.3);
+            border-radius: 8px;
+            position: relative;
+        }
+
+        .red {
+            color: red;
+        }
+
+        .black {
+            color: black;
+        }
+
+        .waste-pile .card {
+            position: absolute;
+            top: 0;
+            left: 0;
+        }
+
+        .foundation .card {
+            position: absolute;
+            top: 0;
+            left: 0;
+        }
+
+        .deck:not(:empty)::after {
+            content: "";
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: #00008B;
+            background-image: linear-gradient(45deg, #000080 25%, transparent 25%),
+                            linear-gradient(-45deg, #000080 25%, transparent 25%),
+                            linear-gradient(45deg, transparent 75%, #000080 75%),
+                            linear-gradient(-45deg, transparent 75%, #000080 75%);
+            background-size: 20px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <main>
+        <div class="game-area"></div>
+    </main>
+
+    <script>
+    (function() {
+        const $ = str => document.querySelector(str);
+        const $$ = str => document.querySelectorAll(str);
+
+        const app = {
+            data: {
+                deck: [],
+                foundation: [[],[],[],[]],
+                tableau: [[],[],[],[],[],[],[]],
+                waste: [],
+                suits: ['♠', '♥', '♦', '♣'],
+                values: ['A','2','3','4','5','6','7','8','9','10','J','Q','K'],
+                valueMap: {'A':1,'2':2,'3':3,'4':4,'5':5,'6':6,'7':7,'8':8,'9':9,'10':10,'J':11,'Q':12,'K':13}
+            },
+            state: {
+                loaded: false,
+                dragging: null,
+                dragSource: null,
+                dragCards: []
+            },
+            init() {
+                app.createDeck();
+                app.shuffleDeck();
+                app.dealCards();
+                app.render();
+                app.attachEvents();
+                app.state.loaded = true;
+            },
+            createDeck() {
+                app.data.deck = [];
+                app.data.suits.forEach((suit, suitIndex) => {
+                    app.data.values.forEach((value, valueIndex) => {
+                        app.data.deck.push({
+                            suit,
+                            value,
+                            color: suitIndex === 1 || suitIndex === 2 ? 'red' : 'black',
+                            faceUp: false
+                        });
+                    });
+                });
+            },
+            shuffleDeck() {
+                for (let i = app.data.deck.length - 1; i > 0; i--) {
+                    const j = Math.floor(Math.random() * (i + 1));
+                    [app.data.deck[i], app.data.deck[j]] = [app.data.deck[j], app.data.deck[i]];
+                }
+            },
+            dealCards() {
+                for (let i = 0; i < 7; i++) {
+                    for (let j = i; j < 7; j++) {
+                        const card = app.data.deck.pop();
+                        if (i === j) card.faceUp = true;
+                        app.data.tableau[j].push(card);
+                    }
+                }
+            },
+            createCardElement(card, index = 0) {
+                const cardEl = document.createElement('div');
+                cardEl.className = `card ${card.faceUp ? 'face-up' : ''}`;
+                cardEl.style.top = `${index * 25}px`;
+                cardEl.style.zIndex = index;
+                cardEl.draggable = card.faceUp;
+                cardEl.dataset.value = card.value;
+                cardEl.dataset.suit = card.suit;
+                cardEl.dataset.color = card.color;
+
+                const front = document.createElement('div');
+                front.className = `card-face card-front ${card.color}`;
+                
+                const top = document.createElement('div');
+                top.className = 'top';
+                top.textContent = `${card.value}${card.suit}`;
+                
+                const bottom = document.createElement('div');
+                bottom.className = 'bottom';
+                bottom.textContent = `${card.value}${card.suit}`;
+
+                front.appendChild(top);
+                front.appendChild(bottom);
+
+                const back = document.createElement('div');
+                back.className = 'card-face card-back';
+
+                cardEl.appendChild(front);
+                cardEl.appendChild(back);
+
+                return cardEl;
+            },
+            render() {
+                const gameArea = $('.game-area');
+                let html = `
+                    <div class="top-row">
+                        <div class="deck pile"></div>
+                        <div class="waste pile"></div>
+                        <div style="flex: 1"></div>
+                        <div class="foundation-area" style="display: flex; gap: 10px">
+                            ${app.data.foundation.map(() => '<div class="foundation pile"></div>').join('')}
+                        </div>
+                    </div>
+                    <div class="tableau">
+                        ${app.data.tableau.map(() => '<div class="tableau-pile pile"></div>').join('')}
+                    </div>
+                `;
+                gameArea.innerHTML = html;
+
+                // Render waste pile
+                if (app.data.waste.length > 0) {
+                    const wasteEl = $('.waste');
+                    // Get the last up to 3 cards from waste
+                    const visibleCards = app.data.waste.slice(-3);
+                    visibleCards.forEach((card, index) => {
+                        card.faceUp = true;
+                        const cardEl = app.createCardElement(card);
+                        // Only the top card is draggable
+                        cardEl.draggable = (index === visibleCards.length - 1);
+                        wasteEl.appendChild(cardEl);
+                    });
+                }
+
+                // Render deck
+                const deckEl = $('.deck');
+                if (app.data.deck.length > 0) {
+                    const topCard = app.data.deck[app.data.deck.length - 1];
+                    topCard.faceUp = false;
+                    const cardEl = app.createCardElement(topCard);
+                    cardEl.draggable = false;
+                    deckEl.appendChild(cardEl);
+                }
+
+                // Render foundation
+                app.data.foundation.forEach((pile, i) => {
+                    const pileEl = $$('.foundation')[i];
+                    if (pile.length > 0) {
+                        const topCard = pile[pile.length - 1];
+                        pileEl.appendChild(app.createCardElement(topCard));
+                    }
+                });
+
+                // Render tableau
+                app.data.tableau.forEach((pile, i) => {
+                    const pileEl = $$('.tableau-pile')[i];
+                    pile.forEach((card, j) => {
+                        pileEl.appendChild(app.createCardElement(card, j));
+                    });
+                });
+            },
+            isValidTableauMove(sourceCard, targetPile) {
+                if (targetPile.length === 0) {
+                    return sourceCard.value === 'K';
+                }
+                const targetCard = targetPile[targetPile.length - 1];
+                return targetCard.faceUp && 
+                       targetCard.color !== sourceCard.color && 
+                       app.data.valueMap[targetCard.value] === app.data.valueMap[sourceCard.value] + 1;
+            },
+            isValidFoundationMove(sourceCard, targetPile) {
+                // Check if targetPile is defined and handle empty piles
+                if (!targetPile || targetPile.length === 0) {
+                    return sourceCard.value === 'A';
+                }
+                const targetCard = targetPile[targetPile.length - 1];
+                return sourceCard.suit === targetCard.suit && 
+                       app.data.valueMap[sourceCard.value] === app.data.valueMap[targetCard.value] + 1;
+            },
+            findCard(element) {
+                const value = element.dataset.value;
+                const suit = element.dataset.suit;
+                const color = element.dataset.color;
+                
+                // Check waste pile
+                if (app.data.waste.length > 0) {
+                    const wasteCard = app.data.waste[app.data.waste.length - 1];
+                    if (wasteCard.value === value && wasteCard.suit === suit) {
+                        return {
+                            location: 'waste',
+                            cards: [wasteCard],
+                            index: app.data.waste.length - 1
+                        };
+                    }
+                }
+
+                // Check tableau piles
+                for (let i = 0; i < app.data.tableau.length; i++) {
+                    const pile = app.data.tableau[i];
+                    for (let j = 0; j < pile.length; j++) {
+                        const card = pile[j];
+                        if (card.value === value && card.suit === suit) {
+                            return {
+                                location: 'tableau',
+                                pileIndex: i,
+                                cards: pile.slice(j),
+                                index: j
+                            };
+                        }
+                    }
+                }
+
+                // Check foundation piles
+                for (let i = 0; i < app.data.foundation.length; i++) {
+                    const pile = app.data.foundation[i];
+                    if (pile.length > 0) {
+                        const card = pile[pile.length - 1];
+                        if (card.value === value && card.suit === suit) {
+                            return {
+                                location: 'foundation',
+                                pileIndex: i,
+                                cards: [card],
+                                index: pile.length - 1
+                            };
+                        }
+                    }
+                }
+
+                return null;
+            },
+            attachEvents() {
+                // Deck click event
+                document.addEventListener('click', (e) => {
+                    const deckEl = e.target.closest('.deck');
+                    if (deckEl) {
+                        if (app.data.deck.length > 0) {
+                            // Draw 3 cards (or remaining cards if less than 3)
+                            const cardsToDraw = Math.min(3, app.data.deck.length);
+                            for (let i = 0; i < cardsToDraw; i++) {
+                                const card = app.data.deck.pop();
+                                card.faceUp = true;
+                                app.data.waste.push(card);
+                            }
+                        } else if (app.data.waste.length > 0) {
+                            // Reset deck from waste pile
+                            app.data.deck = [...app.data.waste].reverse();
+                            app.data.waste = [];
+                            app.data.deck.forEach(card => card.faceUp = false);
+                        }
+                        app.render();
+                    }
+                });
+                document.addEventListener('dragstart', (e) => {
+                    let tgt = e.target.closest(".card");
+                    if (tgt && tgt.draggable) {
+                        
+                        app.state.dragging = tgt;
+                        app.state.dragSource = app.findCard(tgt);
+                        e.dataTransfer.setDragImage(tgt.querySelector('.card-front'), 15, 15);
+
+                        tgt.style.opacity = '1';
+                        tgt.classList.add('dragging');
+                    }
+                });
+
+                document.addEventListener('dragend', (e) => {
+                    if (app.state.dragging) {
+                        app.state.dragging.style.opacity = '1';
+                        app.state.dragging.classList.remove('dragging');
+                        app.state.dragging = null;
+                        app.state.dragSource = null;
+                    }
+                });
+
+                document.addEventListener('dragover', (e) => {
+                    e.preventDefault();
+                });
+
+                document.addEventListener('drop', (e) => {
+                    e.preventDefault();
+                    if (!app.state.dragSource) return;
+
+                    const target = e.target.closest('.pile');
+                    if (!target) return;
+
+                    const sourceCards = app.state.dragSource.cards;
+                    const sourceCard = sourceCards[0];
+
+                    if (target.classList.contains('tableau-pile')) {
+                        const pileIndex = Array.from($$('.tableau-pile')).indexOf(target);
+                        const targetPile = app.data.tableau[pileIndex];
+
+                        if (app.isValidTableauMove(sourceCard, targetPile)) {
+                            if (app.state.dragSource.location === 'waste') {
+                                app.data.waste.pop();
+                            } else if (app.state.dragSource.location === 'tableau') {
+                                app.data.tableau[app.state.dragSource.pileIndex].splice(
+                                    app.state.dragSource.index
+                                );
+                            } else if (app.state.dragSource.location === 'foundation') {
+                                app.data.foundation[app.state.dragSource.pileIndex].pop();
+                            }
+
+                            sourceCards.forEach(card => {
+                                targetPile.push(card);
+                            });
+
+                            // Flip the new top card in the source tableau pile if needed
+                            if (app.state.dragSource.location === 'tableau') {
+                                const sourcePile = app.data.tableau[app.state.dragSource.pileIndex];
+                                if (sourcePile.length > 0 && !sourcePile[sourcePile.length - 1].faceUp) {
+                                    sourcePile[sourcePile.length - 1].faceUp = true;
+                                }
+                            }
+                        }
+                    } else if (target.classList.contains('foundation')) {
+                        const pileIndex = Array.from($$('.foundation')).indexOf(target);
+                        const targetPile = app.data.foundation[pileIndex];
+
+                        if (sourceCards.length === 1 && app.isValidFoundationMove(sourceCard, targetPile)) {
+                            if (app.state.dragSource.location === 'waste') {
+                                app.data.waste.pop();
+                            } else if (app.state.dragSource.location === 'tableau') {
+                                app.data.tableau[app.state.dragSource.pileIndex].splice(
+                                    app.state.dragSource.index
+                                );
+                                const sourcePile = app.data.tableau[app.state.dragSource.pileIndex];
+                                if (sourcePile.length > 0 && !sourcePile[sourcePile.length - 1].faceUp) {
+                                    sourcePile[sourcePile.length - 1].faceUp = true;
+                                }
+                            }
+                            targetPile.push(sourceCard);
+
+                            // Check for win condition
+                            if (app.checkWinCondition()) {
+                                setTimeout(() => {
+                                    alert('Congratulations! You won!');
+                                }, 100);
+                            }
+                        }
+                    }
+                    app.render();
+                });
+
+                $('.deck').addEventListener('click', () => {
+                    if (app.data.deck.length > 0) {
+                        const card = app.data.deck.pop();
+                        card.faceUp = true;
+                        app.data.waste.push(card);
+                    } else {
+                        app.data.deck = [...app.data.waste].reverse();
+                        app.data.waste = [];
+                        app.data.deck.forEach(card => card.faceUp = false);
+                    }
+                    app.render();
+                });
+
+                // Double-click to automatically move to foundation
+                document.addEventListener('dblclick', (e) => {
+                    if (!e.target.classList.contains('card') || !e.target.draggable) return;
+
+                    const cardInfo = app.findCard(e.target);
+                    if (!cardInfo || cardInfo.cards.length !== 1) return;
+
+                    const card = cardInfo.cards[0];
+                    
+                    // Find a valid foundation pile
+                    for (let i = 0; i < app.data.foundation.length; i++) {
+                        const foundationPile = app.data.foundation[i];
+                        if (app.isValidFoundationMove(card, foundationPile)) {
+                            // Remove from source
+                            if (cardInfo.location === 'waste') {
+                                app.data.waste.pop();
+                            } else if (cardInfo.location === 'tableau') {
+                                app.data.tableau[cardInfo.pileIndex].splice(cardInfo.index);
+                                const sourcePile = app.data.tableau[cardInfo.pileIndex];
+                                if (sourcePile.length > 0 && !sourcePile[sourcePile.length - 1].faceUp) {
+                                    sourcePile[sourcePile.length - 1].faceUp = true;
+                                }
+                            }
+
+                            // Add to foundation
+                            foundationPile.push(card);
+                            app.render();
+
+                            // Check for win
+                            if (app.checkWinCondition()) {
+                                setTimeout(() => {
+                                    alert('Congratulations! You won!');
+                                }, 100);
+                            }
+                            break;
+                        }
+                    }
+                });
+            },
+            checkWinCondition() {
+                return app.data.foundation.every(pile => pile.length === 13);
+            }
+        };
+
+        window.app = app;
+        app.init();
+    })();
+    </script>
+</body>
+</html>

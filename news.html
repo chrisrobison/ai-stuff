@@ -1,0 +1,731 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tech News Dashboard</title>
+    <dialog id="addSourceModal" class="modal">
+        <form method="dialog" class="modal-form">
+            <h2>Add News Source</h2>
+            <div class="form-group">
+                <label for="sourceName">Source Name:</label>
+                <input type="text" id="sourceName" required>
+            </div>
+            <div class="form-group">
+                <label for="sourceUrl">Feed URL:</label>
+                <input type="url" id="sourceUrl" required>
+            </div>
+            <div class="form-group">
+                <label for="sourceType">Feed Type:</label>
+                <select id="sourceType" required>
+                    <option value="rss">RSS</option>
+                    <option value="json">JSON</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="sourceQuery">Query Parameter (optional):</label>
+                <input type="text" id="sourceQuery" placeholder="e.g., x=hn">
+            </div>
+            <div class="modal-buttons">
+                <button type="button" class="button secondary" onclick="this.closest('dialog').close()">Cancel</button>
+                <button type="submit" class="button primary">Add Source</button>
+            </div>
+        </form>
+    </dialog>
+    <style>
+        :root {
+            --background: #f5f5f5;
+            --card-background: #ffffff;
+            --card-header-background: #f8f9fa;
+            --text-primary: #333333;
+            --text-secondary: #666666;
+            --link: #222;
+            --border-color: #eeeeee;
+            --primary-button: #0070f3;
+            --primary-button-hover: #0051cc;
+            --secondary-button: #4b5563;
+            --secondary-button-hover: #374151;
+            --error-background: #fee2e2;
+            --error-border: #ef4444;
+            --error-text: #991b1b;
+            color-scheme: light;
+        }
+
+        [data-theme="dark"] {
+            --background: #1a1a1a;
+            --card-background: #2d2d2d;
+            --card-header-background: #333333;
+            --text-primary: #e5e5e5;
+            --text-secondary: #a0a0a0;
+            --link: #ddd;
+            --border-color: #404040;
+            --primary-button: #3b82f6;
+            --primary-button-hover: #2563eb;
+            --secondary-button: #6b7280;
+            --secondary-button-hover: #4b5563;
+            --error-background: #7f1d1d;
+            --error-border: #dc2626;
+            --error-text: #fecaca;
+            color-scheme: dark;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            line-height: 1.6;
+            color: var(--text-primary);
+            background-color: var(--background);
+            padding: 2rem;
+            transition: background-color 0.3s ease;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .dashboard {
+            background: var(--card-background);
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            padding: 2rem;
+            transition: background-color 0.3s ease;
+        }
+
+        .dashboard-header {
+            margin-bottom: 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .dashboard-title {
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .dashboard-controls {
+            display: flex;
+            gap: 0.75rem;
+            align-items: center;
+        }
+
+        .theme-toggle {
+            padding: 0.5rem;
+            border-radius: 4px;
+            border: 1px solid var(--border-color);
+            background: var(--card-background);
+            color: var(--text-primary);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            transition: all 0.3s ease;
+        }
+
+        .theme-toggle:hover {
+            background: var(--card-header-background);
+        }
+
+        .refresh-button {
+            padding: 0.5rem 1rem;
+            background-color: var(--primary-button);
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.875rem;
+            transition: background-color 0.3s ease;
+        }
+
+        .refresh-button:hover {
+            background-color: var(--primary-button-hover);
+        }
+
+        .refresh-button:disabled {
+            background-color: var(--secondary-button);
+            cursor: not-allowed;
+        }
+
+        .news-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 1.5rem;
+        }
+
+        .news-card {
+            background: var(--card-background);
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            overflow: hidden;
+            transition: all 0.3s ease;
+        }
+
+        .card-header {
+            background: var(--card-header-background);
+            padding: 1rem;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .source-info {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .source-favicon {
+            width: 32px;
+            height: 32px;
+            object-fit: contain;
+        }
+
+        .card-title {
+            font-weight: 600;
+            font-size: 1.1rem;
+        }
+
+        .collapse-button {
+            background: none;
+            border: none;
+            cursor: pointer;
+            padding: 4px;
+            color: #666;
+        }
+
+        .collapse-button:hover {
+            color: #333;
+        }
+
+        .news-list {
+            max-height: 400px;
+            overflow-y: auto;
+            padding: 1rem;
+        }
+
+        .news-list.collapsed {
+            display: none;
+        }
+
+        .news-item {
+            padding-bottom: 1rem;
+            margin-bottom: 1rem;
+            border-bottom: 1px solid #eee;
+        }
+
+        .news-item:last-child {
+            border-bottom: none;
+            margin-bottom: 0;
+        }
+
+        .news-title {
+            font-size: 1rem;
+            font-weight: 500;
+            color: var(--link);
+            text-decoration: none;
+            margin-bottom: 0.5rem;
+            display: block;
+        }
+
+        .news-title:hover {
+            text-decoration: underline;
+        }
+
+        .news-meta {
+            font-size: 0.875rem;
+            color: #666;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 2rem;
+            color: #666;
+        }
+        
+        a {
+            text-decoration: none;
+            color: var(--link);
+        }
+        .error {
+            background-color: #fee2e2;
+            border: 1px solid #ef4444;
+            color: #991b1b;
+            padding: 1rem;
+            border-radius: 4px;
+            margin-bottom: 1rem;
+        }
+
+        /* Modal styles */
+        .modal {
+            border: none;
+            border-radius: 8px;
+            padding: 0;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            max-width: 500px;
+            width: 90%;
+            background: var(--card-background);
+            color: var(--text-primary);
+        }
+
+        .modal::backdrop {
+            background-color: rgba(0, 0, 0, 0.5);
+        }
+
+        .modal-form {
+            padding: 2rem;
+        }
+
+        .modal-form h2 {
+            margin-bottom: 1.5rem;
+            font-size: 1.25rem;
+            color: var(--text-primary);
+        }
+
+        .form-group {
+            margin-bottom: 1rem;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+            color: var(--text-primary);
+        }
+
+        .form-group input,
+        .form-group select {
+            width: 100%;
+            padding: 0.5rem;
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            font-size: 1rem;
+            background: var(--card-background);
+            color: var(--text-primary);
+        }
+
+        .form-group input:focus,
+        .form-group select:focus {
+            outline: none;
+            border-color: var(--primary-button);
+        }
+
+        .modal-buttons {
+            display: flex;
+            justify-content: flex-end;
+            gap: 1rem;
+            margin-top: 2rem;
+        }
+
+        .button {
+            padding: 0.5rem 1rem;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.875rem;
+        }
+
+        .button.primary {
+            background-color: #0070f3;
+            color: white;
+        }
+
+        .button.secondary {
+            background-color: #e5e7eb;
+            color: #374151;
+        }
+
+        .button.primary:hover {
+            background-color: #0051cc;
+        }
+
+        .button.secondary:hover {
+            background-color: #d1d5db;
+        }
+
+        .manage-sources {
+            margin-left: 1rem;
+            padding: 0.5rem 1rem;
+            background-color: #4b5563;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.875rem;
+        }
+
+        .manage-sources:hover {
+            background-color: #374151;
+        }
+
+        @media (max-width: 640px) {
+            body {
+                padding: 1rem;
+            }
+
+            .dashboard {
+                padding: 1rem;
+            }
+
+            .news-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="dashboard">
+            <div class="dashboard-header">
+                <h1 class="dashboard-title">Tech News Dashboard</h1>
+                <div>
+                    <button id="themeToggle" class="theme-toggle">
+                        <span class="theme-icon">🌞</span>
+                        <span class="theme-text">Light</span>
+                    </button>
+                    <button id="addSourceButton" class="manage-sources">Add Source</button>
+                    <button id="refreshButton" class="refresh-button">Refresh</button>
+                </div>
+            </div>
+            <div id="errorContainer"></div>
+            <div id="newsContainer">
+                <div class="loading">Loading news...</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        class NewsDashboard {
+            constructor() {
+                this.LOCAL_STORAGE_KEY = 'customNewsSources';
+                this.THEME_STORAGE_KEY = 'theme';
+                this.newsContainer = document.getElementById('newsContainer');
+                this.errorContainer = document.getElementById('errorContainer');
+                this.refreshButton = document.getElementById('refreshButton');
+                this.CORS_PROXY = 'https://cdr2.com/news.php?url=';
+                this.collapsedCards = new Set();
+                
+                this.DEFAULT_FEEDS = [
+                    {
+                        name: 'Mozilla Blog',
+                        url: 'https://blog.mozilla.org/feed/',
+                        type: 'rss',
+                        domain: 'mozilla.org'
+                    },
+                    {
+                        name: 'CSS Tricks',
+                        url: 'https://css-tricks.com/feed/',
+                        type: 'rss',
+                        domain: 'css-tricks.com'
+                    },
+                    {
+                        name: 'Hacker News',
+                        url: 'https://news.ycombinator.com/',
+                        type: 'json',
+                        query: 'x=hn',
+                        domain: 'news.ycombinator.com'
+                    },
+                    {
+                        name: 'The Verge Tech',
+                        url: 'https://www.theverge.com/rss/tech/index.xml',
+                        type: 'rss',
+                        domain: 'www.theverge.com'
+                    },
+                    {
+                        name: 'TechCrunch',
+                        url: 'https://techcrunch.com/feed/',
+                        type: 'rss',
+                        domain: 'techcrunch.com'
+                    },
+                    {
+                        name: 'Ars Technica',
+                        url: 'https://feeds.arstechnica.com/arstechnica/index',
+                        type: 'rss',
+                        domain: 'artechnica.com'
+                    },
+                ];
+
+                this.refreshButton.addEventListener('click', () => this.fetchNews());
+                // Set up modal elements
+                this.addSourceButton = document.getElementById('addSourceButton');
+                this.addSourceModal = document.getElementById('addSourceModal');
+                this.addSourceForm = this.addSourceModal.querySelector('form');
+
+                // Set up event listeners
+                this.addSourceButton.addEventListener('click', () => this.addSourceModal.showModal());
+                this.addSourceForm.addEventListener('submit', (e) => this.handleAddSource(e));
+
+                // Set up theme toggle
+                this.themeToggle = document.getElementById('themeToggle');
+                this.themeToggle.addEventListener('click', () => this.toggleTheme());
+                
+                // Initialize theme
+                this.initializeTheme();
+
+                this.init();
+            }
+
+            get FEEDS() {
+                const customSources = this.getCustomSources();
+                return [...this.DEFAULT_FEEDS, ...customSources];
+            }
+
+            getCustomSources() {
+                try {
+                    return JSON.parse(localStorage.getItem(this.LOCAL_STORAGE_KEY) || '[]');
+                } catch (error) {
+                    console.error('Error loading custom sources:', error);
+                    return [];
+                }
+            }
+
+            saveCustomSources(sources) {
+                try {
+                    localStorage.setItem(this.LOCAL_STORAGE_KEY, JSON.stringify(sources));
+                } catch (error) {
+                    console.error('Error saving custom sources:', error);
+                }
+            }
+
+            getFaviconUrl(domain) {
+                return `https://www.google.com/s2/favicons?domain=${domain}&sz=32`;
+            }
+
+            extractDomain(url) {
+                try {
+                    const urlObj = new URL(url);
+                    return urlObj.hostname;
+                } catch (error) {
+                    console.error('Error extracting domain:', error);
+                    return '';
+                }
+            }
+
+            handleAddSource(event) {
+                event.preventDefault();
+                
+                const form = event.target;
+                const sourceUrl = form.querySelector('#sourceUrl').value.trim();
+                const newSource = {
+                    name: form.querySelector('#sourceName').value.trim(),
+                    url: sourceUrl,
+                    type: form.querySelector('#sourceType').value,
+                    query: form.querySelector('#sourceQuery').value.trim(),
+                    domain: this.extractDomain(sourceUrl)
+                };
+
+                // Validate the new source
+                if (!newSource.name || !newSource.url) {
+                    alert('Please fill in all required fields');
+                    return;
+                }
+
+                // Add the new source to localStorage
+                const customSources = this.getCustomSources();
+                customSources.push(newSource);
+                this.saveCustomSources(customSources);
+
+                // Reset form and close modal
+                form.reset();
+                this.addSourceModal.close();
+
+                // Refresh the news feed
+                this.fetchNews();
+            }
+
+            async init() {
+                await this.fetchNews();
+            }
+
+            showLoading() {
+                this.newsContainer.innerHTML = '<div class="loading">Loading news...</div>';
+                this.refreshButton.disabled = true;
+            }
+
+            showError(message) {
+                this.errorContainer.innerHTML = `
+                    <div class="error">
+                        ${message}
+                    </div>
+                `;
+                this.refreshButton.disabled = false;
+            }
+
+            clearError() {
+                this.errorContainer.innerHTML = '';
+            }
+
+            async parseRSS(text) {
+                const parser = new DOMParser();
+                const xmlDoc = parser.parseFromString(text, 'text/xml');
+                const items = xmlDoc.querySelectorAll('item');
+                console.dir(text);
+                console.dir(items);
+                let out = Array.from(items).map(item => ({
+                    title: item.querySelector('title')?.textContent || '',
+                    link: item.querySelector('link')?.textContent || '',
+                    date: new Date(item.querySelector('pubDate')?.textContent || ''),
+                    source: item.querySelector('source')?.textContent || ''
+                }));
+
+                return out;
+            }
+
+            async parseJSON(txt) {
+                const items = JSON.parse(txt);
+                return Array.from(items).map(item => ({
+                    ...item,
+                    date: new Date(item.pubDate || ''),
+                }));
+            }
+
+            async fetchFeed(feed) {
+                console.log(`Fetching feed: ${feed.name}`, feed);
+                const xtra = (feed.query) ? '&' + feed.query : '';
+                let url = '';
+
+                if (!feed.noproxy) {
+                    url = this.CORS_PROXY + encodeURIComponent(feed.url) + xtra;
+                } else {
+                    url = feed.url + xtra;
+                }
+                console.log(`url: ${url}`);
+                const response = await fetch(url);
+                const text = await response.text();
+                
+                if (feed.type === 'rss') {
+                    const items = await this.parseRSS(text);
+                    const out = items.map(item => ({ ...item, sourceName: feed.name }));
+                    console.log(`feed: ${feed.name}`, out);
+                    return out;
+                } else {
+                    const items = await this.parseJSON(text);
+                    return items.map(item => ({ ...item, sourceName: feed.name }));
+                }
+            }
+
+            toggleCard(sourceName) {
+                const listElement = document.querySelector(`[data-source="${sourceName}"] .news-list`);
+                const buttonIcon = document.querySelector(`[data-source="${sourceName}"] .collapse-button`);
+                
+                if (this.collapsedCards.has(sourceName)) {
+                    this.collapsedCards.delete(sourceName);
+                    listElement.classList.remove('collapsed');
+                    buttonIcon.innerHTML = '▼';
+                } else {
+                    this.collapsedCards.add(sourceName);
+                    listElement.classList.add('collapsed');
+                    buttonIcon.innerHTML = '▶';
+                }
+            }
+
+            renderNewsCards(newsItems) {
+                // Group news items by source
+                const newsBySource = {};
+                newsItems.forEach(item => {
+                    if (!newsBySource[item.sourceName]) {
+                        newsBySource[item.sourceName] = [];
+                    }
+                    newsBySource[item.sourceName].push(item);
+                });
+
+                const cardsHTML = Object.entries(newsBySource).map(([source, items]) => {
+                    const feedInfo = this.FEEDS.find(feed => feed.name === source);
+                    const faviconUrl = this.getFaviconUrl(feedInfo?.domain || this.extractDomain(items[0]?.link || ''));
+                    
+                    return `
+                    <div class="news-card" data-source="${source}">
+                        <div class="card-header">
+                            <div class="source-info">
+                                <img src="${faviconUrl}" alt="${source} icon" class="source-favicon" onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>📰</text></svg>'">
+                                <h2 class="card-title">${source}</h2>
+                            </div>
+                            <button class="collapse-button" onclick="dashboard.toggleCard('${source}')">▼</button>
+                        </div>
+                        <div class="news-list ${this.collapsedCards.has(source) ? 'collapsed' : ''}">
+                            ${items.map(item => `
+                                <article class="news-item">
+                                    <a href="${item.link}" target="_blank" rel="noopener noreferrer" class="news-title">
+                                        ${item.title}
+                                    </a>
+                                    <div class="news-meta">
+                                        ${item.date.toLocaleDateString()}
+                                    </div>
+                                </article>
+                            `).join('')}
+                        </div>
+                    </div>
+                `}).join('');
+
+                this.newsContainer.innerHTML = `
+                    <div class="news-grid">
+                        ${cardsHTML}
+                    </div>
+                `;
+            }
+
+            async fetchNews() {
+                this.showLoading();
+                this.clearError();
+
+                try {
+                    const allNews = await Promise.all(
+                        this.FEEDS.map(feed => this.fetchFeed(feed))
+                    );
+
+                    const flattenedNews = allNews
+                        .flat()
+                        .sort((a, b) => b.date - a.date);
+
+                    this.renderNewsCards(flattenedNews);
+                } catch (error) {
+                    console.error(`Error: `, error);
+                    this.showError('Failed to fetch news feeds. Please try again later.');
+                    this.newsContainer.innerHTML = '';
+                }
+
+                this.refreshButton.disabled = false;
+            }
+        
+            initializeTheme() {
+                const savedTheme = localStorage.getItem(this.THEME_STORAGE_KEY) || 'light';
+                this.setTheme(savedTheme);
+            }
+
+            setTheme(theme) {
+                document.documentElement.setAttribute('data-theme', theme);
+                localStorage.setItem(this.THEME_STORAGE_KEY, theme);
+                
+                const icon = theme === 'dark' ? '🌜' : '🌞';
+                const text = theme === 'dark' ? 'Dark' : 'Light';
+                
+                this.themeToggle.innerHTML = `
+                    <span class="theme-icon">${icon}</span>
+                    <span class="theme-text">${text}</span>
+                `;
+            }
+
+            toggleTheme() {
+                const currentTheme = localStorage.getItem(this.THEME_STORAGE_KEY) || 'light';
+                const newTheme = currentTheme === 'light' ? 'dark' : 'light';
+                this.setTheme(newTheme);
+            }
+
+            initializeTheme() {
+                const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+                const savedTheme = localStorage.getItem(this.THEME_STORAGE_KEY) || (prefersDark ? 'dark' : 'light');
+                this.setTheme(savedTheme);
+            }
+        }
+        // Initialize the dashboard
+        const dashboard = new NewsDashboard();
+    </script>
+</body>
+</html>

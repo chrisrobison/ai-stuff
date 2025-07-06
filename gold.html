@@ -1,0 +1,452 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <style>
+        .container {
+            max-width: 800px;
+            margin: 20px auto;
+            font-family: system-ui, -apple-system, sans-serif;
+        }
+        .controls {
+            margin: 20px 0;
+            display: flex;
+            gap: 20px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+        .control-group {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+        button {
+            padding: 8px 16px;
+            background: #3b82f6;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        button:hover {
+            background: #2563eb;
+        }
+        canvas {
+            background: #f0f9ff;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2>Placer Gold Deposition Simulation</h2>
+        <canvas id="simulation" width="600" height="400"></canvas>
+        <div class="controls">
+            <div class="control-group">
+                <button id="toggleBtn">Start Simulation</button>
+                <button id="newPathBtn">Generate New Path</button>
+            </div>
+            <div class="control-group">
+                <label>Flow Speed:</label>
+                <input type="range" id="speedControl" min="0.5" max="2" step="0.1" value="1">
+            </div>
+            <div class="control-group">
+                <label>Meandering:</label>
+                <input type="range" id="meanderControl" min="0" max="1" step="0.1" value="0.5">
+            </div>
+            <div class="control-group">
+                <label>Obstacles:</label>
+                <input type="number" id="obstacleControl" min="1" max="5" value="2" style="width: 50px">
+            </div>
+        </div>
+    </div>
+
+    <script>
+        class GoldSimulation {
+            constructor(canvasId) {
+                this.canvas = document.getElementById(canvasId);
+                this.ctx = this.canvas.getContext('2d');
+                this.isRunning = false;
+                this.speed = 1;
+                this.particles = [];
+                this.waterParticles = [];
+                this.lastTime = 0;
+                this.meanderIntensity = 0.5;
+                this.numObstacles = 2;
+
+                // Initialize river path
+                this.riverPath = this.generateRiverPath();
+                
+                // Initialize controls
+                this.setupControls();
+            }
+
+            generateRiverPath() {
+                const path = [];
+                const width = this.canvas.width;
+                const height = this.canvas.height;
+                const numPoints = 7;
+                
+                // Start point
+                path.push({ 
+                    x: 50, 
+                    y: 50 + Math.random() * 50, 
+                    type: 'start', 
+                    cp: [] 
+                });
+
+                // Generate meandering path points
+                for (let i = 1; i < numPoints - 1; i++) {
+                    const progress = i / (numPoints - 1);
+                    const baseX = 50 + (width - 100) * progress;
+                    const meanderY = height/2 + Math.sin(progress * Math.PI * 2) * 
+                        (height/4) * this.meanderIntensity * (Math.random() * 0.5 + 0.75);
+                    
+                    const point = {
+                        x: baseX,
+                        y: meanderY,
+                        type: 'curve',
+                        cp: this.generateControlPoints(
+                            path[path.length-1],
+                            {x: baseX, y: meanderY}
+                        )
+                    };
+                    path.push(point);
+                }
+
+                // End point
+                path.push({ 
+                    x: width - 50, 
+                    y: height - 50 - Math.random() * 50, 
+                    type: 'end', 
+                    cp: [] 
+                });
+
+                // Add obstacles/dams
+                const possibleObstaclePoints = path.slice(2, -2);
+                for (let i = 0; i < this.numObstacles; i++) {
+                    const idx = Math.floor(Math.random() * possibleObstaclePoints.length);
+                    possibleObstaclePoints[idx].type = 'dam';
+                    possibleObstaclePoints.splice(idx, 1);
+                }
+
+                return path;
+            }
+
+            generateControlPoints(start, end) {
+                const dx = end.x - start.x;
+                const dy = end.y - start.y;
+                const dist = Math.sqrt(dx * dx + dy * dy);
+                const angle = Math.atan2(dy, dx);
+                
+                // Add some randomness to control points
+                const cp1x = start.x + Math.cos(angle) * dist * 0.25 + 
+                    (Math.random() - 0.5) * 50 * this.meanderIntensity;
+                const cp1y = start.y + Math.sin(angle) * dist * 0.25 + 
+                    (Math.random() - 0.5) * 50 * this.meanderIntensity;
+                
+                const cp2x = end.x - Math.cos(angle) * dist * 0.25 + 
+                    (Math.random() - 0.5) * 50 * this.meanderIntensity;
+                const cp2y = end.y - Math.sin(angle) * dist * 0.25 + 
+                    (Math.random() - 0.5) * 50 * this.meanderIntensity;
+
+                return [cp1x, cp1y, cp2x, cp2y];
+            }
+
+            setupControls() {
+                const toggleBtn = document.getElementById('toggleBtn');
+                const speedControl = document.getElementById('speedControl');
+                const meanderControl = document.getElementById('meanderControl');
+                const obstacleControl = document.getElementById('obstacleControl');
+                const newPathBtn = document.getElementById('newPathBtn');
+
+                toggleBtn.addEventListener('click', () => {
+                    this.isRunning = !this.isRunning;
+                    toggleBtn.textContent = this.isRunning ? 'Pause Simulation' : 'Start Simulation';
+                    if (this.isRunning) this.animate();
+                });
+
+                speedControl.addEventListener('input', (e) => {
+                    this.speed = parseFloat(e.target.value);
+                });
+
+                meanderControl.addEventListener('input', (e) => {
+                    this.meanderIntensity = parseFloat(e.target.value);
+                });
+
+                obstacleControl.addEventListener('input', (e) => {
+                    this.numObstacles = parseInt(e.target.value);
+                });
+
+                newPathBtn.addEventListener('click', () => {
+                    this.resetSimulation();
+                });
+            }
+
+            resetSimulation() {
+                this.particles = [];
+                this.waterParticles = [];
+                this.riverPath = this.generateRiverPath();
+                
+                // Add initial water particles
+                for (let i = 0; i < 50; i++) {
+                    this.waterParticles.push(this.createWaterParticle());
+                }
+            }
+
+            createWaterParticle() {
+                const startPoint = this.riverPath[0];
+                return {
+                    x: startPoint.x,
+                    y: startPoint.y + Math.random() * 20 - 10,
+                    alpha: Math.random() * 0.5 + 0.2,
+                    length: Math.random() * 10 + 15,
+                    velocity: Math.random() * 1 + 2,
+                    pathIndex: 0,
+                    offset: Math.random() * 20 - 10,
+                    angle: Math.atan2(
+                        this.riverPath[1].y - startPoint.y,
+                        this.riverPath[1].x - startPoint.x
+                    )
+                };
+            }
+
+            createGoldParticle() {
+                const startPoint = this.riverPath[0];
+                return {
+                    x: startPoint.x,
+                    y: startPoint.y,
+                    size: Math.random() * 2 + 1,
+                    velocity: Math.random() * 2 + 0.5,
+                    settled: false,
+                    pathIndex: 0,
+                    turbulence: { x: 0, y: 0 },
+                    angle: Math.random() * Math.PI * 2,
+                    shimmer: 0
+                };
+            }
+
+            getBezierPoint(t, p0, p1, p2, p3) {
+                const mt = 1 - t;
+                return {
+                    x: mt * mt * mt * p0.x + 3 * mt * mt * t * p1.x + 3 * mt * t * t * p2.x + t * t * t * p3.x,
+                    y: mt * mt * mt * p0.y + 3 * mt * mt * t * p1.y + 3 * mt * t * t * p2.y + t * t * t * p3.y
+                };
+            }
+
+            getPathPoint(pathIndex, t) {
+                const current = this.riverPath[pathIndex];
+                const next = this.riverPath[pathIndex + 1];
+                
+                if (!next) return current;
+
+                if (current.type === 'curve' && current.cp.length === 4) {
+                    const p1 = { x: current.cp[0], y: current.cp[1] };
+                    const p2 = { x: current.cp[2], y: current.cp[3] };
+                    return this.getBezierPoint(t, current, p1, p2, next);
+                }
+
+                return {
+                    x: current.x + (next.x - current.x) * t,
+                    y: current.y + (next.y - current.y) * t
+                };
+            }
+
+            drawRiver() {
+                // Draw riverbank shadow
+                this.ctx.beginPath();
+                this.ctx.moveTo(this.riverPath[0].x, this.riverPath[0].y);
+                this.riverPath.forEach((point, i) => {
+                    if (i === 0) return;
+                    if (point.type === 'curve' && point.cp.length === 4) {
+                        const cp = point.cp;
+                        this.ctx.bezierCurveTo(cp[0], cp[1], cp[2], cp[3], point.x, point.y);
+                    } else {
+                        this.ctx.lineTo(point.x, point.y);
+                    }
+                });
+                this.ctx.strokeStyle = '#2563eb33';
+                this.ctx.lineWidth = 34;
+                this.ctx.stroke();
+
+                // Draw main river
+                this.ctx.beginPath();
+                this.ctx.moveTo(this.riverPath[0].x, this.riverPath[0].y);
+                this.riverPath.forEach((point, i) => {
+                    if (i === 0) return;
+                    if (point.type === 'curve' && point.cp.length === 4) {
+                        const cp = point.cp;
+                        this.ctx.bezierCurveTo(cp[0], cp[1], cp[2], cp[3], point.x, point.y);
+                    } else {
+                        this.ctx.lineTo(point.x, point.y);
+                    }
+                });
+                this.ctx.strokeStyle = '#4682B4';
+                this.ctx.lineWidth = 30;
+                this.ctx.stroke();
+            }
+
+
+
+            updateWaterParticles(deltaTime) {
+                this.waterParticles = this.waterParticles.map(particle => {
+                    particle.pathIndex += particle.velocity * this.speed * deltaTime * 0.001;
+                    
+                    if (particle.pathIndex >= this.riverPath.length - 1) {
+                        return this.createWaterParticle();
+                    }
+
+                    const position = this.getPathPoint(
+                        Math.floor(particle.pathIndex),
+                        particle.pathIndex % 1
+                    );
+
+                    return {
+                        ...particle,
+                        x: position.x + particle.offset,
+                        y: position.y + particle.offset
+                    };
+                });
+
+                // Add new water particles
+                if (this.waterParticles.length < 100 && Math.random() < 0.1) {
+                    this.waterParticles.push(this.createWaterParticle());
+                }
+            }
+
+            drawWaterParticles() {
+                this.ctx.strokeStyle = '#87CEEB';
+                this.waterParticles.forEach(particle => {
+                    this.ctx.beginPath();
+                    this.ctx.moveTo(particle.x, particle.y);
+                    this.ctx.lineTo(
+                        particle.x - particle.length * Math.cos(particle.angle),
+                        particle.y - particle.length * Math.sin(particle.angle)
+                    );
+                    this.ctx.globalAlpha = particle.alpha;
+                    this.ctx.lineWidth = 2;
+                    this.ctx.stroke();
+                });
+                this.ctx.globalAlpha = 1;
+            }
+
+            updateGoldParticles(deltaTime) {
+                this.particles = this.particles.map(particle => {
+                    if (particle.settled) {
+                        particle.shimmer += deltaTime * 0.002;
+                        return particle;
+                    }
+
+                    const pathPoint = this.getPathPoint(
+                        Math.floor(particle.pathIndex),
+                        particle.pathIndex % 1
+                    );
+
+                    // Add turbulence
+                    particle.turbulence.x += (Math.random() - 0.5) * 0.2;
+                    particle.turbulence.y += (Math.random() - 0.5) * 0.2;
+                    particle.turbulence.x *= 0.95;
+                    particle.turbulence.y *= 0.95;
+
+                    const newX = pathPoint.x + particle.turbulence.x;
+                    const newY = pathPoint.y + particle.turbulence.y;
+
+                    // Check for settling
+                    const currentPoint = this.riverPath[Math.floor(particle.pathIndex)];
+                    if (currentPoint && (currentPoint.type === 'curve' || currentPoint.type === 'dam')) {
+                        const settlingChance = particle.size * 0.1 * deltaTime * 0.001;
+                        if (Math.random() < settlingChance) {
+                            particle.settled = true;
+                            return particle;
+                        }
+                    }
+
+                    particle.pathIndex += particle.velocity * this.speed * deltaTime * 0.001;
+                    
+                    if (particle.pathIndex >= this.riverPath.length - 1) {
+                        return this.createGoldParticle();
+                    }
+
+                    return {
+                        ...particle,
+                        x: newX,
+                        y: newY
+                    };
+                });
+
+                // Add new gold particles
+                if (this.particles.length < 50 && Math.random() < 0.05) {
+                    this.particles.push(this.createGoldParticle());
+                }
+            }
+
+            drawGoldParticles() {
+                this.particles.forEach(particle => {
+                    this.ctx.beginPath();
+                    const shimmer = particle.settled ? 
+                        Math.sin(particle.shimmer) * 0.3 + 0.7 : 1;
+                    this.ctx.arc(particle.x, particle.y, particle.size, 0, Math.PI * 2);
+                    this.ctx.fillStyle = particle.settled ? 
+                        `rgba(255, 215, 0, ${shimmer})` : 
+                        'rgba(218, 165, 32, 0.8)';
+                    this.ctx.fill();
+                });
+            }
+
+            drawObstacles() {
+                this.riverPath.forEach(point => {
+                    if (point.type === 'dam') {
+                        this.ctx.fillStyle = '#8B4513';
+                        this.ctx.fillRect(point.x - 20, point.y - 5, 40, 10);
+                    }
+                });
+            }
+
+            animate(timestamp = 0) {
+                if (!this.isRunning) return;
+
+                const deltaTime = timestamp - this.lastTime;
+                this.lastTime = timestamp;
+
+                // Clear canvas
+                this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+
+                // Draw river bed
+                this.drawRiver();
+
+                // Update and draw water particles
+                this.updateWaterParticles(deltaTime);
+                this.drawWaterParticles();
+
+                // Draw obstacles
+                this.drawObstacles();
+
+                // Update and draw gold particles
+                this.updateGoldParticles(deltaTime);
+                this.drawGoldParticles();
+
+                requestAnimationFrame(this.animate.bind(this));
+            }
+
+            start() {
+                if (!this.isRunning) {
+                    this.isRunning = true;
+                    this.animate();
+                }
+            }
+
+            stop() {
+                this.isRunning = false;
+            }
+        }
+
+        // Initialize simulation
+        const simulation = new GoldSimulation('simulation');
+
+        // Add initial particles
+        for (let i = 0; i < 50; i++) {
+            simulation.waterParticles.push(simulation.createWaterParticle());
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,437 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lissajous Figure Generator</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f5f5f5;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow-x: hidden;
+        }
+        .main-container {
+            display: flex;
+            flex: 1;
+            flex-direction: row;
+            min-height: 100vh;
+            overflow: hidden;
+        }
+        .canvas-container {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            padding: 20px;
+            overflow: hidden;
+        }
+        .controls-container {
+            width: 300px;
+            background-color: white;
+            box-shadow: -2px 0 10px rgba(0, 0, 0, 0.1);
+            padding: 20px;
+            overflow-y: auto;
+        }
+        h1 {
+            margin-top: 0;
+            margin-bottom: 20px;
+            font-size: 24px;
+            color: #333;
+        }
+        canvas {
+            border: 1px solid #ddd;
+            background-color: black;
+            margin-bottom: 20px;
+            max-height: calc(100vh - 100px);
+            width: 100%;
+            object-fit: contain;
+        }
+        .control-group {
+            margin-bottom: 20px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+            color: #555;
+        }
+        input[type="range"] {
+            width: 100%;
+            margin-bottom: 5px;
+        }
+        .value-display {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 5px;
+            font-size: 12px;
+            color: #777;
+        }
+        .button-group {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-top: 30px;
+        }
+        button {
+            padding: 12px 15px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: background-color 0.2s;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        button.secondary {
+            background-color: #2196F3;
+        }
+        button.secondary:hover {
+            background-color: #0b7dda;
+        }
+        .canvas-wrapper {
+            flex: 1;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            overflow: hidden;
+        }
+        
+        /* Mobile responsive styles */
+        @media (max-width: 768px) {
+            .main-container {
+                flex-direction: column;
+                overflow-y: auto;
+                min-height: auto;
+            }
+            .canvas-container {
+                padding: 15px;
+                order: 1;
+            }
+            .controls-container {
+                width: 100%;
+                order: 2;
+                box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.1);
+            }
+            h1 {
+                font-size: 20px;
+                text-align: center;
+            }
+            canvas {
+                max-height: 60vh;
+            }
+            .button-group {
+                grid-template-columns: 1fr 1fr;
+            }
+        }
+        
+        /* Small mobile styles */
+        @media (max-width: 480px) {
+            .canvas-container {
+                padding: 10px;
+            }
+            .controls-container {
+                padding: 15px;
+            }
+            h1 {
+                font-size: 18px;
+                margin-bottom: 15px;
+            }
+            .button-group {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="main-container">
+        <div class="canvas-container">
+            <h1>Lissajous Figure Generator</h1>
+            <div class="canvas-wrapper">
+                <canvas id="lissajousCanvas" width="600" height="600"></canvas>
+            </div>
+        </div>
+        
+        <div class="controls-container">
+            <div class="control-group">
+                <label for="freqX">X Frequency: <span id="freqXValue">1.0</span></label>
+                <input type="range" id="freqX" min="0.1" max="10" step="0.1" value="1.0">
+                <div class="value-display">
+                    <span>0.1</span>
+                    <span>10.0</span>
+                </div>
+            </div>
+            
+            <div class="control-group">
+                <label for="freqY">Y Frequency: <span id="freqYValue">2.0</span></label>
+                <input type="range" id="freqY" min="0.1" max="10" step="0.1" value="2.0">
+                <div class="value-display">
+                    <span>0.1</span>
+                    <span>10.0</span>
+                </div>
+            </div>
+            
+            <div class="control-group">
+                <label for="phase">Phase Shift: <span id="phaseValue">0.0</span></label>
+                <input type="range" id="phase" min="0" max="6.28" step="0.01" value="0">
+                <div class="value-display">
+                    <span>0</span>
+                    <span>2π</span>
+                </div>
+            </div>
+            
+            <div class="control-group">
+                <label for="speed">Animation Speed: <span id="speedValue">1.0</span></label>
+                <input type="range" id="speed" min="0.1" max="3" step="0.1" value="1.0">
+                <div class="value-display">
+                    <span>Slow</span>
+                    <span>Fast</span>
+                </div>
+            </div>
+
+            <div class="button-group">
+                <button id="pauseButton">Pause</button>
+                <button id="clearButton" class="secondary">Clear Trace</button>
+                <button id="clearCanvasButton" class="secondary">Clear Canvas</button>
+                <button id="resetButton" class="secondary">Reset Controls</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Get the canvas and its 2D context
+        const canvas = document.getElementById('lissajousCanvas');
+        const ctx = canvas.getContext('2d');
+        
+        // Set initial parameters
+        let params = {
+            freqX: 1.0,
+            freqY: 2.0,
+            phase: 0,
+            speed: 1.0,
+            isPaused: false,
+            showTrace: true,
+            time: 0
+        };
+        
+        // Get DOM elements
+        const freqXSlider = document.getElementById('freqX');
+        const freqYSlider = document.getElementById('freqY');
+        const phaseSlider = document.getElementById('phase');
+        const speedSlider = document.getElementById('speed');
+        const pauseButton = document.getElementById('pauseButton');
+        const clearButton = document.getElementById('clearButton');
+        const clearCanvasButton = document.getElementById('clearCanvasButton');
+        const resetButton = document.getElementById('resetButton');
+        
+        // Value display elements
+        const freqXValue = document.getElementById('freqXValue');
+        const freqYValue = document.getElementById('freqYValue');
+        const phaseValue = document.getElementById('phaseValue');
+        const speedValue = document.getElementById('speedValue');
+        
+        // Set up event listeners
+        freqXSlider.addEventListener('input', updateFreqX);
+        freqYSlider.addEventListener('input', updateFreqY);
+        phaseSlider.addEventListener('input', updatePhase);
+        speedSlider.addEventListener('input', updateSpeed);
+        
+        pauseButton.addEventListener('click', togglePause);
+        clearButton.addEventListener('click', clearTrace);
+        clearCanvasButton.addEventListener('click', clearCanvas);
+        resetButton.addEventListener('click', resetControls);
+        
+        // Function to update parameters
+        function updateFreqX() {
+            params.freqX = parseFloat(freqXSlider.value);
+            freqXValue.textContent = params.freqX.toFixed(1);
+        }
+        
+        function updateFreqY() {
+            params.freqY = parseFloat(freqYSlider.value);
+            freqYValue.textContent = params.freqY.toFixed(1);
+        }
+        
+        function updatePhase() {
+            params.phase = parseFloat(phaseSlider.value);
+            phaseValue.textContent = params.phase.toFixed(2);
+        }
+        
+        function updateSpeed() {
+            params.speed = parseFloat(speedSlider.value);
+            speedValue.textContent = params.speed.toFixed(1);
+        }
+        
+        function togglePause() {
+            params.isPaused = !params.isPaused;
+            pauseButton.textContent = params.isPaused ? 'Resume' : 'Pause';
+        }
+        
+        function clearTrace() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            // Draw only the current point
+            params.showTrace = false;
+            drawLissajous();
+            params.showTrace = true;
+        }
+        
+        function clearCanvas() {
+            // Clear the entire canvas including the trail history
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            // Reset the trail array
+            trail.length = 0;
+            // Add the current point back to the trail
+            const point = calculatePoint(params.time);
+            trail.push(point);
+        }
+        
+        function resetControls() {
+            // Reset sliders to default values
+            freqXSlider.value = 1.0;
+            freqYSlider.value = 2.0;
+            phaseSlider.value = 0;
+            speedSlider.value = 1.0;
+            
+            // Update parameters
+            updateFreqX();
+            updateFreqY();
+            updatePhase();
+            updateSpeed();
+            
+            // Clear canvas
+            clearTrace();
+            
+            // Reset time
+            params.time = 0;
+        }
+        
+        // Function to calculate a point on the Lissajous curve
+        function calculatePoint(time) {
+            const x = Math.sin(params.freqX * time + params.phase);
+            const y = Math.sin(params.freqY * time);
+            
+            // Determine the smaller dimension for a responsive scaling
+            const minDimension = Math.min(canvas.width, canvas.height);
+            // Scale to canvas size with padding
+            const canvasX = canvas.width / 2 + x * (minDimension / 2 - 30);
+            const canvasY = canvas.height / 2 - y * (minDimension / 2 - 30);
+            
+            return { x: canvasX, y: canvasY };
+        }
+        
+        // Array to store the trail of points
+        const trail = [];
+        const maxTrailLength = 1000;
+        
+        // Function to draw the Lissajous figure
+        function drawLissajous() {
+            const point = calculatePoint(params.time);
+            
+            // Add the current point to the trail
+            trail.push(point);
+            
+            // Limit trail length
+            if (trail.length > maxTrailLength) {
+                trail.shift();
+            }
+            
+            // Clear canvas only when we're not showing the trace
+            if (!params.showTrace) {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+            }
+            
+            // Draw the trail
+            if (params.showTrace) {
+                ctx.beginPath();
+                ctx.moveTo(trail[0].x, trail[0].y);
+                
+                for (let i = 1; i < trail.length; i++) {
+                    // Gradient color based on position in trail (newer points are brighter)
+                    const alpha = i / trail.length;
+                    ctx.strokeStyle = `rgba(50, 200, 255, ${alpha})`;
+                    ctx.lineTo(trail[i].x, trail[i].y);
+                    ctx.stroke();
+                    ctx.beginPath();
+                    ctx.moveTo(trail[i].x, trail[i].y);
+                }
+            }
+            
+            // Draw the current point as a circle
+            ctx.beginPath();
+            ctx.arc(point.x, point.y, 5, 0, Math.PI * 2);
+            ctx.fillStyle = '#ff3333';
+            ctx.fill();
+        }
+        
+        // Function to handle mobile/desktop layout adjustments
+        function handleLayoutChange() {
+            resizeCanvas();
+            
+            // Check if we're in mobile view
+            const isMobile = window.matchMedia("(max-width: 768px)").matches;
+            
+            // Adjust canvas size for better mobile experience
+            if (isMobile) {
+                // For mobile, we want the canvas to be more compact
+                const viewportHeight = window.innerHeight;
+                const idealCanvasHeight = Math.min(viewportHeight * 0.5, 400); // 50% of viewport height, max 400px
+                
+                canvas.style.maxHeight = idealCanvasHeight + "px";
+            } else {
+                // For desktop, we let it be dynamic based on the container
+                canvas.style.maxHeight = "calc(100vh - 100px)";
+            }
+        }
+        
+        // Function to resize canvas
+        function resizeCanvas() {
+            const canvasWrapper = document.querySelector('.canvas-wrapper');
+            const wrapperWidth = canvasWrapper.clientWidth;
+            const wrapperHeight = canvasWrapper.clientHeight || 400; // Fallback height
+            
+            // Maintain aspect ratio (square)
+            let size = Math.min(wrapperWidth, wrapperHeight) - 40; // 40px for padding
+            
+            // Ensure minimum size on small screens
+            size = Math.max(size, 250);
+            
+            canvas.width = size;
+            canvas.height = size;
+            
+            // Redraw after resize
+            if (trail.length > 0) {
+                clearCanvas();
+            }
+        }
+        
+        // Add resize event listener
+        window.addEventListener('resize', handleLayoutChange);
+        
+        // Call layout handler initially
+        setTimeout(handleLayoutChange, 100);
+
+        // Animation loop
+        function animate() {
+            if (!params.isPaused) {
+                // Increment time
+                params.time += 0.01 * params.speed;
+                
+                // Draw the figure
+                drawLissajous();
+            }
+            
+            // Request next frame
+            requestAnimationFrame(animate);
+        }
+        
+        // Start the animation
+        animate();
+    </script>
+</body>
+</html>

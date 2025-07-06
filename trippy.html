@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<head>
+    <meta charset="utf-8">
+    <title></title>
+    <link href="https://fonts.googleapis.com/css2?family=Lexend:wght@100..800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" integrity="sha512-iecdLmaskl7CVkqkXNQ/ZH/XLlvWZOJyj7Yy7tcenmpD1ypASozpmT/E0iPtmFIB46ZmdtAc9eNBvH0H/ZpiBw==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+    <style>
+        :root {
+            --background-color: #fff;
+            --text-color: #000;
+            --header-background: #666;
+            --header-color: #fff;
+            --primary-color: #c00;
+            --secondary-color: #0c0;
+            --tertiary-color: #00c;
+            box-sizing: border-box;
+            font-family: "Lexend", "Helvetica Neue", "Helvetica", sans-serif;
+            font-size: 18px;
+        }
+
+        body {
+            /* background: repeating-radial-gradient(circle 20px at 0% 0%, var(--primary-color), transparent), repeating-radial-gradient(circle 20px at 100% 0%, var(--secondary-color), transparent 20px),repeating-radial-gradient(circle 20px at 50% 50%, var(--tertiary-color), transparent);*/
+            color: var(--text-color);
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            width: 100vw;
+        }
+        @keyframes trip {
+            from { top:-100vh; left: 0; }
+            to { top: 0vh; left: -200vw; }
+        }
+        @keyframes trip2 {
+            from { left:-200vw; }
+            to { left: 0; }
+        }
+        header, footer {
+            background-color: var(--header-background);
+            color: var(--header-color);
+        }
+
+        header {
+            height: 0vh;
+        }
+
+        main {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            flex: 1 10 80vh;
+        }
+
+        footer {
+            height: 0vh;
+        }
+        .source {
+            position: absolute;
+            height: 300vh;
+            width: 300vw;
+            top:-200px;
+            left: -200px;
+            mix-blend-mode: overlay;
+        }
+        .red {
+            background-image: repeating-radial-gradient(circle 20px at 0% 0%, var(--primary-color), transparent);
+        }
+        .green {
+            background: repeating-radial-gradient(circle 20px at 33% 33%, var(--secondary-color), transparent 20px);
+            animation: 60s linear 0s infinite reverse both running trip2;
+        }
+        .blue {
+            background: repeating-radial-gradient(circle 20px at 50% 50%, var(--tertiary-color), transparent);
+            animation: 60s linear 0s infinite reverse both running trip;
+        }
+    </style>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/js/all.min.js" integrity="sha512-fD9DI5bZwQxOi7MhYWnnNPlvXdp/2Pj3XSTRrFs5FQa4mizyGLnJcN6tuvUS6LbmgN1ut+XGSABKvjN0H6Aoow==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+</head>
+<body>
+<main>
+    <div class="source red"></div>
+    <div class="source green"></div>
+    <div class="source blue"></div>
+</main>
+<script>
+(function() {
+    const $ = str => document.querySelector(str);
+    const $$ = str => document.querySelectorAll(str);
+
+    const app = {
+        data: {},
+        state: {
+            loaded: false
+        },
+        init() {
+            document.addEventListener("mousemove", function(e) {
+                $(".blue").style.top = -e.y  + 'px';
+                $(".blue").style.left = e.x - (window.innerWidth/2)  + 'px';
+            });
+            app.state.loaded = true;
+        },
+        fetch(url, callback) {
+            fetch(url).then(response=>response.json()).then(data=>{
+                app.data = data;
+                app.state.loaded = true;
+                if (callback && typeof(callback) === "function") {
+                    callback(data);
+                }
+            }).catch(error => console.error('Fetch error:', error));;
+        },
+        display(data, tgt) {
+            let out = "<table><thead><tr>";
+            const keys = Object.keys(data[0]);
+            if (keys) {
+                keys.forEach(key => {
+                    out += `<th>${key}</th>`;
+                });
+            }
+            out += "</tr></thead><tbody>";
+            data.forEach(item=>{
+                out += `<tr>`;
+                keys.forEach(key => {
+                    out += `<td>${item[key]}</td>`;
+                });
+                out += `</tr>`;
+            });
+            out += "</tbody></table>";
+
+            if (tgt) {
+                tgt.innerHTML = out;
+            }
+            return out;
+        }
+    }
+    window.app = app;
+    app.init();
+})();
+</script>
+</body>
+
+</html>

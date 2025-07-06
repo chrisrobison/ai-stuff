@@ -1,0 +1,1448 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Canvas Grid</title>
+    <style>
+        :root {
+            --cellHeight: 50px;
+            --cellWidth: 50px;
+        }
+        body, html {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            width: 100vw;
+            height: 100vh;
+            background: #333;
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            font-family: "Lexend", "Helvetica Neue", "Arial", sans-serif;
+        }
+        main {
+            width: 70vw;
+            height: 100vh;
+            cursor: grab;
+            user-select: none;
+        }
+        canvas {
+            display: block;
+        }
+        .candy {
+            line-height: 1;
+            width: var(--cellWidth);
+            height: var(--cellHeight);
+            background-size: contain;
+            background-repeat: no-repeat;
+            position: absolute;
+            transition: top 200ms cubic-bezier(0.995, -0.075, 0.815, 1.245), left 500ms linear, opacity 500ms linear, transform 500ms linear;
+            opacity: 0;
+        }
+        .candy0 { background-image: url("./candy/candy0.png"); }
+        .candy1 { background-image: url("./candy/candy1.png"); }
+        .candy2 { background-image: url("./candy/candy2.png"); }
+        .candy3 { background-image: url("./candy/candy3.png"); }
+        .candy4 { background-image: url("./candy/candy4.png"); }
+        .candy5 { background-image: url("./candy/candy5.png"); }
+        .candy6 { background-image: url("./candy/candy6.png"); }
+        .candy7 { background-image: url("./candy/candy7.png"); }
+        .candy8 { background-image: url("./candy/candy8.png"); }
+        .candy9 { background-image: url("./candy/candy9.png"); }
+        .candy10 { background-image: url("./candy/candy10.png"); }
+        .candy11 { background-image: url("./candy/candy11.png"); }
+        div.candy-alt { 
+            background-image: none; 
+        }
+        .highlight {
+            background-color: #ff06;
+        }
+        .highlight-to {
+            background-color: #ff06;
+        }
+        .hint1 { animation: hint-up 2000ms linear infinite alternate; }
+        .hint2 { animation: hint-down 2000ms linear infinite alternate; }
+        .hint3 { animation: hint-right 2000ms linear infinite alternate; }
+        .hint4 { animation: hint-left 2000ms linear infinite alternate; }
+
+        @keyframes hint-up {
+            0% { transform: translateY(0); }
+            25% { transform: translateY(calc(-1 * var(--cellHeight))); }
+            80% { transform: translateY(calc(-1 * var(--cellHeight))); }
+            100% { transform: translateY(0); }
+        }
+        @keyframes hint-down {
+            0% { transform: translateY(0); }
+            25% { transform: translateY(var(--cellHeight)); }
+            80% { transform: translateY(var(--cellHeight)); }
+            100% { transform: translateY(0); }
+        }
+        @keyframes hint-left {
+            0% { transform: translateX(0); }
+            25% { transform: translateX(calc(-1 * var(--cellWidth))); }
+            80% { transform: translateX(calc(-1 * var(--cellWidth))); }
+            100% { transform: translateX(0); }
+        }
+         @keyframes hint-right {
+            0% { transform: translateX(0); }
+            25% { transform: translateX(var(--cellWidth)); }
+            80% { transform: translateX(var(--cellWidth)); }
+            100% { transform: translateX(0); }
+        }
+        main div.candy-alt {
+            font-size: var(--cellHeight);
+        }
+            .candy.candy9.blue {
+                filter: hue-rotate(263deg) brightness(2) saturate(3);
+            }
+            .candy0.blue {
+                filter: hue-rotate(215deg) saturate(1.5);
+            }
+            .candy2.blue {
+                filter: hue-rotate(215deg) brightness(1.5) saturate(1.5);
+            }
+            .candy3.blue {
+                filter: hue-rotate(215deg) saturate(1.5);
+            }
+            .candy4.blue {
+                filter: hue-rotate(215deg) saturate(1.5);
+            }
+            .candy5.blue {
+                filter: hue-rotate(95deg);
+            }
+            .candy6.blue {
+                filter: hue-rotate(165deg) saturate(1.5);
+            }
+            .candy7.blue {
+                filter: hue-rotate(215deg) saturate(1.5);
+            }
+            .candy8.blue {
+                filter: hue-rotate(-55deg);
+            }
+            .candy9.blue {
+                filter: hue-rotate(215deg) saturate(1.5);
+            }
+            .candy10.blue {
+            }
+            .candy11.blue {
+                filter: hue-rotate(215deg) saturate(1.5);
+            }
+        canvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            margin: 50px 0 0 50px;
+            border: 1px solid #000;
+        }
+        .explode {
+            animation: 250ms linear 0s 1 normal forwards running explode;
+        }
+        @keyframes explode {
+            0% { scale: 1; opacity: 1; }
+            100% { scale: 2; opacity: 0; }
+        }
+        #debug {
+            background-color: #FFF;
+            color: #000;
+            width: 20em;
+            height: 10em;
+            font-size: 10px;
+            position: absolute;
+            bottom: 0px;
+            right: 0px;
+        }
+        #info {
+            height: 100vh;
+        }
+        
+        #status, .status {
+            margin: 1rem;
+            padding: 1rem;
+            border: 3px solid #acf;
+            width: 20vw;
+            color: #fff;
+            font-size: 28px;
+        }
+        .val {
+            color: #fff;
+        }
+        .poof {
+            background-image: url("poof/poof3_wide.png");
+            background-size: 1875px 110px;
+            background-repeat: no-repeat;
+            position: absolute;
+            height: 110px;
+            width: 125px;
+            display: inline-block;
+            animation-fill-mode: reverse;
+        }
+        .poof-active {
+            animation: poof 650ms steps(15) 1;
+        }
+        @keyframes poof {
+            to { background-position-x: -1875px; }
+        }
+        .scored {
+            animation: scored 1000ms linear 1;
+            position: absolute;
+            height: val(--cellHeight);
+            width: val(--cellWidth);
+            display: inline-block;
+            color: #fff;
+            font-size: 18px;
+            text-shadow: 1px 1px 1px #0009;
+        }
+        @keyframes scored {
+            0% { transform: scale(1); opacity: 1; }
+            100% { transform: scale(3); opacity: 0; }
+        }
+        .goalIcon {
+            background-size: contain;
+            background-repeat: no-repeat;
+            transition: top 200ms cubic-bezier(0.995, -0.075, 0.815, 1.245), left 500ms linear, opacity 500ms linear, transform 500ms linear;
+            height: 22px;
+            width: 28px;
+            position: relative;
+            top: 8px;
+            padding-right: 6px;
+        }
+        .goal {
+            display: flex;
+
+        }
+        li {
+            margin:0;
+            padding: 0;
+            list-style: none;
+        }
+        ul {
+            margin: 0;
+            padding: 0;
+        }
+        .val {
+            font-size: var(--cellHeight);
+
+        }
+        #level-title {
+            position: absolute;
+            z-index: 99999;
+            height: 100vh;
+            width: 100vw;
+            top: 0;
+            left: 0;
+            font-size: 36px;
+            color: #fff;
+            text-shadow: 2px 2px 2px #0009;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            transform: scale(0);
+            transition: all 300ms linear;
+            display: flex;
+        }
+        #level-title.showlevel {
+            opacity: 1;
+            transform: scale(1);
+            transition: all 300ms linear;
+        }
+        #level-title.gameover {
+            animation: gameover 4000ms linear 1;
+            display: flex;
+        }
+        .overlay {
+            position: absolute;
+            z-index: 99999;
+            background:#0006;
+            height: 100vh;
+            width: 100vw;
+            top: 0;
+            left: 0;
+            opacity: 0;
+            transition: opacity 200ms linear;
+        }
+        .hint {
+            animation: hint 1000ms linear;
+        }
+        @keyframes gameover {
+            0% {
+                opacity:0;
+                transform: scale(0);
+            }
+            10% {
+                opacity: 1;
+                transform: scale(1);
+            }
+            90% {
+                opacity: 1;
+                transform: scale(1);
+            }
+            100% {
+                opacity: 1;
+                transform: scale(1);
+            }
+        @keyframes showlevel {
+            0% {
+                transform: scale(0);
+                opacity: 1;
+            }
+            10% {
+                transform: scale(1);
+            }
+            90% {
+                transform: scale(1);
+            }
+            100% {
+                transform: scale(0);
+            }
+        }
+@keyframes squiggly-anim {
+  0% {
+    filter: url("#squiggly-0");
+  }
+  25% {
+    filter: url("#squiggly-1");
+  }
+  50% {
+    filter: url("#squiggly-2");
+  }
+  75% {
+    filter: url("#squiggly-3");
+  }
+  100% {
+    filter: url("#squiggly-4");
+  }
+}
+            @keyframes hint {
+                0% {
+                    background-color: #fff0;
+                }
+                50% {
+                    background-color: #ffff;
+                }
+                100% {
+                    background-color: #fff0;
+                }
+
+            }
+    </style>
+</head>
+<body>
+    <main>
+    <canvas id="gridCanvas"></canvas>
+    </main>
+    <div id="info">
+        <div id="status">
+            <div class="score">SCORE: <span id="scoreboard"></span></div>
+            <div class="score">LEVEL: <span id="currentlevel"></span></div>
+            <div class="score">"<span id="levelname"></span>"</div>
+        </div>
+        <div class="status">
+            <div class="score">GOALS: <span id="goals"></span></div>
+        </div>
+        <div id="debug"></div>
+    </div>
+    <div class="overlay">
+        <div id="level-title"></div>
+    </div>
+    <script>
+    class Candy {
+        row;
+        col;
+        type;
+        el;
+        self = this;
+
+        constructor(row=0, col=0, type, delay=-1) {
+            this.row = row;
+            this.col = col;
+            this.type = (type) ? type : app.config.levels[app.state.level].candies[Math.floor(Math.random() * app.config.levels[app.state.level].pieces)];
+            this.value = 5 * (this.type + 1);
+
+            this.el = this.makeEl(row, col, this.type);
+
+            document.querySelector("main").appendChild(this.el);            
+            app.state.pieces.push(this);
+            this.idx = app.state.pieces.length - 1;
+            
+            app.state.board[row][col] = this;
+
+            if (delay > -1) {
+                setTimeout(()=>{ this.drop() }, delay);
+            } else if (delay=='auto') {
+                setTimeout(()=>{ this.drop() }, (this.col * 100) + ((app.config.levels[app.state.level].rows - this.row) * 100));
+            }
+        }
+
+        makeEl(row=0, col=0, type) {
+            let el = document.createElement("div");
+            el.className = `candy candy${this.type}`;
+            el.id = `piece${app.state.pieces.length+1}`;
+            
+            if (app.config.levels[app.state.level].class) {
+                el.className += ' ' + app.config.levels[app.state.level].class;
+            }
+            
+            let content = "";
+
+            if (app.icons) {
+                // if (app.config.levels[app.state.level].iconset) {
+                //content = app.iconsets[app.config.levels[app.state.level].iconset][this.type];
+                content = app.icons[this.type];
+                el.className += ' ' + 'candy-alt';
+            }
+            el.style.top = "0px";
+            el.style.left = (app.state.cellWidth * col ) + 60 + 'px';
+            el.style.opacity = 0;
+            
+            el.dataset.row = row;
+            el.dataset.col = col;
+            el.dataset.type = type;
+            el.innerHTML = `<span class='val'>${content}</span>`;
+        
+            return el;
+        }
+
+        drop(delay=0) {
+            return new Promise((resolve, reject) => {
+
+                setTimeout(() => {
+                    this.el.style.top = (app.state.cellHeight * this.row ) + 52 + 'px';
+                    this.el.style.left = (app.state.cellWidth * this.col ) + 60 + 'px';
+                    this.el.style.opacity = 1.0;
+                    resolve(true);
+                }, delay);
+            });
+        }
+        move(row=0, col=0) {
+            this.row += row;
+            this.col += col;
+            
+            if (this.row < 0) this.row = 0;
+            if (this.col < 0) this.col = 0;
+
+            if (this.row > app.config.levels[app.state.level].rows - 1) this.row = app.config.levels[app.state.level].rows -1;
+            if (this.col > app.config.levels[app.state.level].cols - 1) this.col = app.config.levels[app.state.level].cols -1;
+
+            this.el.dataset.row = this.row;
+            this.el.dataset.col = this.col;
+
+            this.el.style.top = (app.state.cellHeight * this.row ) + 52 + 'px';
+            this.el.style.left = (app.state.cellWidth * this.col ) + 60 + 'px';
+        }
+        fall(final=false) {
+            if (app.state.board[this.row + 1] && app.state.board[this.row + 1][this.col].exploded) {
+                let tmp = app.state.board[this.row + 1][this.col];
+                let oldrow = this.row;
+                
+                // app.state.board[this.row + 1].splice(this.col, 1, app.state.board[row][col]);
+                this.moveTo(this.row + 1, this.col);
+                app.state.board[oldrow][this.col] = tmp;
+
+                if (!final) this.fall(true);
+            } else {
+                return false;
+            }
+        }
+        moveTo(row, col, delay=0) {
+            this.row = row;
+            this.col = col;
+            
+            if (this.row < 0) this.row = 0;
+            if (this.col < 0) this.col = 0;
+
+            if (this.row > app.config.levels[app.state.level].rows - 1) this.row = app.config.levels[app.state.level].rows - 1;
+            if (this.col > app.config.levels[app.state.level].cols - 1) this.col = app.config.levels[app.state.level].cols - 1;
+
+            this.el.dataset.row = this.row;
+            this.el.dataset.col = this.col;
+
+            setTimeout(() => {
+                this.el.style.top = (app.state.cellHeight * this.row ) + 52 + 'px';
+                this.el.style.left = (app.state.cellWidth * this.col ) + 60 + 'px';
+            }, delay);
+            
+            app.state.board[row][col] = this;
+        }
+        explode(anidelay=0) {
+            return new Promise((resolve, reject) => {
+                app.state.score += this.value;
+                this.el.style.opacity = 0;
+                this.el.onanimationend = (evt) => {
+                    resolve(this.el.parentNode.removeChild(this.el));
+                }
+
+                let rect = this.el.getBoundingClientRect();
+                
+                let poof = document.createElement("div");
+                poof.className = "poof";
+                poof.style.top = rect.top - 5 + 'px';
+                poof.style.left = rect.left - 20 + 'px';
+                poof.style.animationDelay = anidelay + 'ms';
+
+                document.querySelector("main").appendChild(poof);
+                setTimeout(()=>{ poof.classList.add("poof-active"); }, 10);
+
+                let scored = document.createElement("div");
+                scored.className = "scored";
+                scored.innerHTML = this.value;
+                scored.style.top = rect.top + 'px';
+                scored.style.left = rect.left - 20 + 'px';
+                scored.style.animationDelay = anidelay + 'ms';
+
+                document.querySelector("main").appendChild(scored);
+
+                setTimeout(() => { 
+                    document.querySelector("main").removeChild(poof); 
+                    document.querySelector("main").removeChild(scored); 
+                }, 1000 + anidelay);
+
+                this.exploded = true;
+                this.el.style.animationDelay = anidelay + 'ms';
+                setTimeout(() => { 
+                    this.el.classList.add('explode');
+                    app.updateScore();
+                    
+                    if (app.goals[`candy${this.type}`]) {
+                        app.goals[`candy${this.type}`]--;
+                        if (app.goals[`candy${this.type}`] < 0) {
+                            app.goals[`candy${this.type}`] = 0;
+                        }
+                        let goalchk = app.goals[`candy${this.type}`];
+                        
+                        if (goalchk > -1) {
+                            document.querySelector(`#goal${this.type}`).innerHTML = goalchk;
+                        }
+                    }
+                }, anidelay);
+            });        
+        }
+
+    }
+
+(function() {
+    const $ = str => document.querySelector(str);
+    const $$ = str => document.querySelectorAll(str);
+
+    const app = {
+        iconsets: {
+            misc: [ '🧱','🚧','🛑','🌀','🧨','🌟','❄', '🔑','☃','⚡','🔥'],
+            body: [ '🧠','🦷','🦴','👁','👅','👄','👃','👂','🦶','💪','🖐','💅'],
+            underwater: [ '🧜', '🐳','🐬','🦭','🐟','🐠','🐡','🦈','🐙','🐚','🪸','🪼','🦞','🦀','🦐','🦑','🦪' ],
+            bugs: ['🐌','🦋','🐛','🐜','🐝','🐞','🪲','🦗','🪳','🕷','🪰','🦟','🦂','🪱'],
+            plants: ['💐','🌸','💮','🪷','🌹','🌺','🌻','🌷','🪻','🍀','🌵','🌲','🪴','🌴','🌳'],
+            fruit: ['🍇','🍉','🍊','🍋','🍌','🍍','🍎','🍏','🍐','🍑','🍒','🍓','🫐','🥝','🍅','🫒','🥥'],
+            veg: ['🥑','🍆','🥔','🥕','🌽','🌶','🫑','🥒','🥬','🥦','🫛','🍄','🥜','🧄','🧅'],
+            sweets: ['🍦','🍧','🍨','🍩','🍪','🎂','🧁','🍫','🍬','🍭','🍮','🍯'],
+            sports: ['⚽','⚾','🥎','🏀','🏐','🏈','🎾','🥏','🎳','🏓','🥊','⛳','🎣','⛸'],
+            game: ['🪀','🎯','🎱','🪁','🔮','🪄','🎮','🎰','🎲','🪅','🪩','♟'],
+            animalFaces: [ '🐵','🦁','🐯','🐮','🐷','🐭','🐶','🐺','🦊','🦝','🐱','🐹','🐰', '🐻','🐨','🐼' ],
+            birds: [ '🦃','🐓','🐣','🐤','🐦','🐧','🦅','🦆','🦢','🦉','🦩','🦚','🦜','🪿'],
+            party: [ '🎈','🎉','✨','🎟','🎁','🍻','🍹','🥂','🍸','🎂']
+        },
+        config: {
+            levels:[
+                {
+                    name: "Introduction",
+                    rows: 6,
+                    cols: 6,
+                    pieces: 6,
+                    candies: [ 0, 1, 2, 3, 4, 5 ],
+                    iconset: 'sports',
+                    goals: {
+                        collect: [ 2, 3 ],
+                        cnt: [ 9, 9 ],
+                        moves: 20
+                    }
+                },
+                { 
+                    name: "Under the Sea",
+                    rows: 10,
+                    cols: 10,
+                    pieces: 5,
+                    candies: [ 0, 1, 2, 3, 4 ],
+                    iconset: 'underwater',
+                    goals: {
+                        collect: [ 1, 2, 3 ],
+                        cnt: [ 12, 12, 12 ],
+                        moves: 40
+                    }
+                },
+                { 
+                    name: "Fruity Delight",
+                    rows: 12,
+                    cols: 12,
+                    pieces: 6,
+                    candies: [ 0, 1, 2, 3, 4, 5],
+                    iconset: 'fruit',
+                    goals: {
+                        collect: [ 1, 2, 3, 4 ],
+                        cnt: [ 10, 10, 10, 10 ],
+                        moves: 40
+                    }
+                },
+                { 
+                    name: "Tasty Sweets",
+                    rows: 9,
+                    cols: 9,
+                    pieces: 7,
+                    candies: [ 0, 1, 2, 3, 4, 5, 6 ],
+                    iconset: 'sweets',
+                    goals: {
+                        collect: [ 2, 3, 4, 5 ],
+                        cnt: [ 10, 10, 10, 10 ],
+                        moves: 30
+                    }
+                },                
+                { 
+                    name: "The Game",
+                    rows: 12,
+                    cols: 12,
+                    pieces: 6,
+                    candies: [ 0, 1, 2, 3, 4, 5 ],
+                    iconset: 'game',
+                    goals: {
+                        collect: [ 1, 2, 3, 5 ],
+                        cnt: [ 3, 3, 3, 3 ],
+                        moves: 20
+                    }
+                },             
+                { 
+                    name: "Cute Critters",
+                    rows: 14,
+                    cols: 14,
+                    pieces: 6,
+                    candies: [ 0, 1, 2, 3, 4, 5 ],
+                    iconset: 'animalFaces',
+                    goals: {
+                        collect: [ 2, 3, 1, 4 ],
+                        cnt: [ 10, 10, 10, 10 ],
+                        moves: 30
+                    }
+                },
+                { 
+                    name: "Flying Friends",
+                    rows: 10,
+                    cols: 10,
+                    pieces: 10,
+                    candies: [ 0, 1, 2, 3, 4, 5, 6, 7, 8, 9 ],
+                    iconset: 'brds',
+                    goals: {
+                        collect: [ 2, 3, 4, 5 ],
+                        cnt: [ 10, 10, 10, 10 ],
+                        moves: 20
+                    }
+                },
+                { 
+                    name: "Plants &amp Trees",
+                    rows: 10,
+                    cols: 10,
+                    pieces: 10,
+                    candies: [ 0, 1, 2, 3, 4, 5, 6, 7, 8, 9 ],
+                    iconset: 'plants',
+                    goals: {
+                        collect: [ 0, 1, 2, 3 ],
+                        cnt: [ 10, 10, 10, 10 ],
+                        moves: 20
+                    }
+                },  
+                { 
+                    name: "Body Parts",
+                    rows: 10,
+                    cols: 10,
+                    pieces: 10,
+                    candies: [ 0, 1, 2, 3, 4, 5, 6, 7, 8, 9 ],
+                    iconset: 'body',
+                    goals: {
+                        collect: [ 0, 1, 2, 3 ],
+                        cnt: [ 10, 10, 10, 10 ],
+                        moves: 20
+                    }
+                },
+                { 
+                    name: "All Tens",
+                    rows: 10,
+                    cols: 10,
+                    pieces: 10,
+                    candies: [ 0, 1, 2, 3, 4, 5, 6, 7, 8, 9 ],
+                    iconset: 'veg',
+                    goals: {
+                        collect: [ 1, 2, 3, 4 ],
+                        cnt: [ 10, 10, 10, 10 ],
+                        moves: 20
+                    }
+                },
+                { 
+                    name: "Be Quick",
+                    rows: 10,
+                    cols: 10,
+                    pieces: 5,
+                    candies: [ 1, 2, 3, 4, 5 ],
+                    iconset: 'sweets',
+                    goals: {
+                        collect: [ 1, 2, 3, 4 ],
+                        cnt: [ 7, 7, 7, 7 ],
+                        moves: 15 
+                    }
+                },
+                { 
+                    name: "The Blues",
+                    rows: 10,
+                    cols: 10,
+                    pieces: 5,
+                    candies: [ 11, 5, 1, 3, 0 ],
+                    class: "blue",
+                    goals: {
+                        collect: [ 1, 5, 3, 0 ],
+                        cnt: [ 7, 7, 7, 7 ],
+                        moves: 15 
+                    }
+                },
+{ 
+                    name: "A Big Board",
+                    rows: 18,
+                    cols: 18,
+                    pieces: 8,
+                    candies: [ 0, 1, 2, 3, 5, 8, 11, 10 ],
+                    goals: {
+                        collect: [ 7, 3, 10 ],
+                        cnt: [ 7, 10, 7 ],
+                        moves: 20
+                    }
+ 
+                }
+
+                ]
+        },
+        state: {
+            level: 0,
+            board: [],
+            pieces: [],
+            score: 0,
+            iconset: '',
+            hint: 0,
+            highlightTO: []
+        },
+        candies: [],
+        level: {},
+        graveyard: [],
+        init() {
+            app.canvas = document.getElementById('gridCanvas');
+            app.canvas.width = window.innerWidth - (window.innerWidth / 4) + 5;
+            app.canvas.height = window.innerHeight - 100;
+            app.ctx = app.canvas.getContext('2d');
+            window.addEventListener('resize', app.resizeCanvas);
+            document.addEventListener('mousedown', app.mouseDown);
+            document.addEventListener('touchstart', app.mouseDown);
+            app.playing = 1;
+            app.nextLevel(0);
+        },
+        touchstart(evt) {
+            console.log("touchstart");
+            console.dir(evt);
+        },
+        mouseDown(evt) {
+            console.log('mouseDown');
+            console.dir(evt);
+            $$(".highlight,.highlight-to,.hint1,.hint2,.hint3,.hint4").forEach((el) => { el.classList.remove("highlight","highlight-to","hint1","hint2","hint3","hint4") });
+            app.state.highlightTO.forEach(val => clearTimeout(val));
+            app.state.highlightTO = [];
+            app.state.hint = 0;
+
+            let coord, x, y;
+            if (evt.x && evt.y) {
+                coord = app.getCellAtPoint(evt.x, evt.y);
+                x = evt.x;
+                y = evt.y;
+            } else if (evt.touches) {
+                coord = app.getCellAtPoint(evt.touches[0].clientX, evt.touches[0].clientY);
+                x = evt.touches[0].clientX;
+                y = evt.touches[0].clientY;
+            }
+
+            if (coord && app.state.board[coord.row] && app.state.board[coord.row][coord.col]) {
+                let cell = app.state.board[coord.row][coord.col];
+                let tgt = cell.el;
+
+                if (tgt) {
+                    tgt.style.transitionDuration = "0ms";
+                    tgt.style.zIndex = 9999;
+                    app.state.dragstart = [x, y];
+                    app.state.draglast = [x, y];
+                    app.state.dragcell = coord;
+                    app.state.dragging = tgt;
+                    app.state.dragging.style.transitionDuration = '0ms';
+                    app.state.dragobj = cell;
+                    app.state.dragrect = app.state.dragging.getBoundingClientRect();
+                    document.addEventListener('mousemove', app.mouseMove);
+                    document.addEventListener('touchmove', app.mouseMove);
+                    document.addEventListener('mouseup', app.mouseUp);
+                    document.addEventListener('touchend', app.mouseUp);
+                    $("main").style.cursor = "grabbing";
+                }
+            }
+        },
+        mouseMove(evt) {
+            let x, y;
+            if (evt.x && evt.y) {
+                x = evt.x;
+                y = evt.y;
+            } else if (evt.touches) {
+                x = evt.touches[0].clientX;
+                y = evt.touches[0].clientY;
+            }
+            app.state.draglast = [x, y];
+            if (Math.abs(x - app.state.dragstart[0]) > Math.abs(y - app.state.dragstart[1])) {
+                let neighbor;
+                let xdiff = (x - app.state.dragstart[0]);
+                if (Math.abs(xdiff) > app.state.cellWidth) xdiff = app.state.cellWidth;
+                
+                if (xdiff < 0) {
+                    neighbor = app.state.board[app.state.dragobj.row][app.state.dragobj.col - 1];
+                    let nr = ((app.state.cellWidth * app.state.dragcell.col - 1) + 60) ;
+                    
+                    if (neighbor) {
+                        neighbor.el.style.transitionDuration = '0ms';
+                        neighbor.el.style.left = nr - xdiff - app.state.cellWidth +'px';
+                    }
+                    // neighbor.el.style.left = ((app.state.cellWidth * app.state.dragcell.col ) + 60) - (evt.x - app.state.dragstart[0]) + 'px';
+                } else {
+                    neighbor = app.state.board[app.state.dragobj.row][app.state.dragobj.col + 1];
+                    let nr = ((app.state.cellWidth * app.state.dragcell.col + 1) + 60) ;
+                    
+                    if (neighbor) {
+                        neighbor.el.style.transitionDuration = '0ms';
+                        neighbor.el.style.left = nr - xdiff + app.state.cellWidth +'px';
+                    }
+                }
+                
+                app.state.dragging.style.left = ((app.state.cellWidth * app.state.dragcell.col) + 60) + xdiff + 'px';
+                app.state.dragging.style.top = ((app.state.cellHeight * app.state.dragcell.row) + 52) + 'px';
+            } else {
+                let neighbor;
+                let ydiff = (y - app.state.dragstart[1]);
+                if (Math.abs(ydiff) > app.state.cellHeight) ydiff = app.state.cellHeight;
+                
+                if ((ydiff < 0) && (app.state.dragobj.row > 0)) {
+                    neighbor = app.state.board[app.state.dragobj.row - 1][app.state.dragobj.col];
+                    let nr = ((app.state.cellHeight * app.state.dragcell.row - 1) + 52) ;
+                    
+                    if (neighbor) {
+                        neighbor.el.style.transitionDuration = '0ms';
+                        neighbor.el.style.top = nr - ydiff - app.state.cellHeight + 'px';
+                    }
+                } else {
+                    if (app.state.board[app.state.dragobj.row + 1]) {
+                        neighbor = app.state.board[app.state.dragobj.row + 1][app.state.dragobj.col];
+                        let nr = ((app.state.cellHeight * app.state.dragcell.row - 1) + 52) ;
+
+                        if (neighbor) {
+                            neighbor.el.style.transitionDuration = '0ms';
+                            neighbor.el.style.top = nr - ydiff + app.state.cellHeight + 'px';
+                        }
+                    }
+                }
+                app.state.dragging.style.top = ((app.state.cellHeight * app.state.dragcell.row) + 52) + ydiff + 'px';
+                app.state.dragging.style.left = ((app.state.cellWidth * app.state.dragcell.col) + 60) + 'px';
+
+            }
+        },
+        mouseUp(evt) {
+            console.log("mouseUp");
+            console.dir(evt);
+            let x, y;
+            if (evt.x && evt.y) {
+                x = evt.x;
+                y = evt.y;
+            } else if (evt.touches) {
+                x = app.state.draglast[0];
+                y = app.state.draglast[1];
+            }
+            let xdiff = (x - app.state.dragstart[0]);
+            let ydiff = (y - app.state.dragstart[1]);
+            
+            let oldobj = app.state.dragobj;
+            let oldrow = parseInt(app.state.dragging.dataset.row);
+            let oldcol = parseInt(app.state.dragging.dataset.col);
+            
+            let newrow = oldrow, newcol = oldcol, newobj, mvrow=0, mvcol=0;
+
+            if (Math.abs(xdiff) > Math.abs(ydiff)) {
+                newcol = oldcol + Math.sign(xdiff);
+                mvrow = Math.sign(xdiff);
+            } else {
+                newrow = oldrow + Math.sign(ydiff);
+                mvcol = Math.sign(ydiff);
+            }
+            
+            console.log(`Moving [${oldrow}:${oldcol}] => [${newrow}:${newcol}]`);
+            newobj = app.state.board[newrow][newcol];
+
+            let tmp = app.state.board[newrow][newcol];
+            newobj.el.dataset.row = newobj.row = oldrow;
+            newobj.el.dataset.com = newobj.col = oldcol;
+
+            oldobj.el.dataset.row = oldobj.row = newrow;
+            oldobj.el.dataset.col = oldobj.col = newcol;
+            
+            app.state.board[newrow][newcol] = app.state.board[oldrow][oldcol];
+            app.state.board[oldrow][oldcol] = tmp;
+            
+            oldobj.moveTo(newrow, newcol);
+            newobj.moveTo(oldrow, oldcol);
+            
+            app.state.dragging = undefined;
+            app.state.dragobj = undefined;
+            app.state.dragstart = undefined;
+            
+            //setTimeout(() => { app.checkMatches(); }, 10);
+
+            if (app.getMatches().length) {
+                app.checkMatches(); 
+                app.goals.moves--;
+                $("#moves").innerHTML = app.goals.moves;
+            } else {
+                // Undo move
+                let tmp2 = app.state.board[newrow][newcol];
+                app.state.board[newrow][newcol] = app.state.board[oldrow][oldcol];
+                app.state.board[oldrow][oldcol] = tmp2;
+                
+                oldobj.el.style.transitionDuration = '200ms';
+                newobj.el.style.transitionDuration = '200ms';
+
+                oldobj.moveTo(oldrow, oldcol);
+                newobj.moveTo(newrow, newcol);
+
+                oldobj.el.dataset.row = oldobj.row = oldrow;
+                oldobj.el.dataset.col = oldobj.col = oldcol;
+                
+                newobj.el.dataset.row = newobj.row = newrow;
+                newobj.el.dataset.com = newobj.col = newcol;
+
+            }
+            document.removeEventListener('mousemove', app.mouseMove);
+            document.removeEventListener('mouseup', app.mouseUp);
+            app.checkGoals();
+            setTimeout(() => { 
+                app.redrawBoard();
+                app.checkGoals();
+                let moves = app.checkForMoves();
+                if (moves.length) {
+                    app.state.highlightTO.push(setTimeout(() => { app.highlightMoves(moves) }, 4000));
+                }
+            }, 2000);
+            $("main").style.cursor = "grab";
+        },
+        initializeGrid(rows, cols) {
+            const cellHeight = (app.canvas.height / rows) ;
+            const cellWidth = cellHeight * 1.4; //(app.canvas.width / cols) - 2;
+            app.canvas.width = cellWidth * cols;
+            
+            app.state.cellHeight = cellHeight;
+            app.state.cellWidth = cellWidth;
+            
+            let root = $(":root");
+            root.style.setProperty("--cellWidth", app.state.cellWidth - 4 + 'px');
+            root.style.setProperty("--cellHeight", app.state.cellHeight - 4 + 'px');
+
+            app.ctx.clearRect(0, 0, app.canvas.width, app.canvas.height);
+            app.ctx.rect(0, 0, app.canvas.width, app.canvas.height);
+            app.ctx.fillStyle = "#0ac";
+            app.ctx.fill();
+            app.ctx.strokeStyle = '#000';
+            app.ctx.lineWidth = 1;
+            for (let i = 0; i < cols; i++) {
+                app.ctx.beginPath();
+                app.ctx.moveTo(i * cellWidth, 0);
+                app.ctx.lineTo(i * cellWidth, app.canvas.height);
+                app.ctx.lineWidth = 2;
+                app.ctx.strokeStyle = '#000';
+                app.ctx.stroke();
+                app.ctx.closePath();
+
+                app.ctx.beginPath();
+                app.ctx.moveTo(i * cellWidth - 1, 0);
+                app.ctx.lineTo(i * cellWidth - 1, app.canvas.height);
+                app.ctx.lineWidth = 2;
+                app.ctx.strokeStyle = '#fff';
+                app.ctx.stroke();
+                app.ctx.closePath();
+
+
+            }
+
+            for (let i = 0; i <= rows; i++) {
+                app.ctx.beginPath();
+                app.ctx.moveTo(0, i * cellHeight);
+                app.ctx.lineTo(cellWidth * cols, i * cellHeight);
+                app.ctx.lineWidth = 2;
+                app.ctx.strokeStyle = '#000';
+                app.ctx.stroke();
+                app.ctx.closePath();
+                
+                app.ctx.beginPath();
+                app.ctx.moveTo(0, i * cellHeight - 1);
+                app.ctx.lineTo(cellWidth * cols, i * cellHeight - 1);
+                app.ctx.lineWidth = 2;
+                app.ctx.strokeStyle = '#fff';
+                app.ctx.stroke();
+                app.ctx.closePath();
+ }
+            app.clearBoard();
+        },
+        fillBoard() {
+            app.candies = [];
+            app.todrop = [];
+            for (let r = app.config.levels[app.state.level].rows - 1; r >= 0; r--) {
+                app.state.board[r] = [];
+                for (let c = app.config.levels[app.state.level].cols - 1; c >= 0; c--) {
+                    // Create new candy
+                    let candy = new Candy(r, c);
+                    
+                    // Store in on the board;
+                    app.state.board[r][c] = candy;
+                    app.candies.push(candy);
+                    app.todrop.push(candy.drop((c * 100) + ((app.config.levels[app.state.level].rows - r) * 100)));
+                }
+            }
+        },
+        redrawBoard() {
+            for (let r = app.config.levels[app.state.level].rows - 1; r >= 0; r--) {
+                for (let c = app.config.levels[app.state.level].cols - 1; c >= 0; c--) {
+                    let item = app.state.board[r][c];
+                    item.el.style.left = (app.state.cellWidth * c) + 60 + 'px';
+                    item.el.style.top = (app.state.cellHeight * r ) + 52 + 'px';
+                    item.row = r;
+                    item.col = c;
+                    item.el.dataset.row = r;
+                    item.el.dataset.col = c;
+                    item.el.style.transitionDuration = "300ms";
+                }
+            }
+        },
+        clearBoard() {
+            for (let r = 0; r < app.config.levels[app.state.level].rows; r++) {
+                app.state.board[r] = [];
+                for (let c = 0; c < app.config.levels[app.state.level].cols; c++) {
+                    app.state.board[r][c] = "";
+                }
+            }
+        },
+        scrambleBoard() {
+            let seen = {};
+            let rows = app.config.levels[app.state.level].rows;
+            let cols = app.config.levels[app.state.level].cols;
+
+            for (let r=0; r < rows - 1; r++) {
+                for (let c=0; c < cols - 1; c++) {
+                    if (!seen[`r${r}c${c}`]) {
+                        let newrow = Math.floor(Math.random() * rows);
+                        let newcol = Math.floor(Math.random() * cols);
+                        
+                        let tmp = app.state.board[newrow][newcol];
+                        app.state.board[newrow][newcol] = app.state.board[r][c];
+                        
+                        app.state.board[r][c] = tmp;
+                        
+                        app.state.board[newrow][newcol].row = newrow;
+                        app.state.board[newrow][newcol].col = newcol;
+                        
+                        app.state.board[r][c].row = r;
+                        app.state.board[r][c].col = c;
+                        
+                        app.state.board[r][c].el.style.transitionDuration = "1000ms";
+                        app.state.board[newrow][newcol].el.style.transitionDuration = "1000ms";
+                        
+                        app.state.board[r][c].moveTo(r, c);
+                        app.state.board[newrow][newcol].moveTo(newrow, newcol, (c * 10) + (r * cols));
+
+                        seen[`r${r}c${c}`] = 1;
+                    }
+                }
+                app.checkMatches();
+            }
+
+        },
+
+        getCellAtPoint(x, y) {
+            x -= 60;
+            y -= 52;
+
+            let row = Math.floor(y / app.state.cellHeight);
+            let col = Math.floor(x / app.state.cellWidth);
+
+            return { row: row, col: col};
+        },
+        condense() {
+            let b = app.state.board;
+            for (let c=0; c<app.config.levels[app.state.level].cols; c++) {
+                for (let r=app.config.levels[app.state.level].rows - 1; r > -1; r--) {
+                    b[r][c].fall();
+                }
+            }
+            app.dumpBoard();
+        },
+        getMatches(board) {
+            let matches = [];
+            let b = (board) ? board : app.state.board;
+            for (let r=0; r<app.config.levels[app.state.level].rows; r++) {
+
+                for (let c=0; c<app.config.levels[app.state.level].cols - 2; c++) {
+                    if ((b[r][c].type == b[r][c + 1].type) && (b[r][c].type == b[r][c + 2].type)) {
+                        let c1 = 0;
+                        let t1 = b[r][c].type;
+                        while (b[r][c + c1] && (b[r][c + c1].type == t1)) {
+                            matches.push({ row: b[r][c + c1].row, col: b[r][c + c1].col });
+                            b[r][c + c1].exploded = 1;
+                            c1++;
+                        }
+                    }
+                }
+
+            }
+
+            for (let c=0; c<app.config.levels[app.state.level].cols; c++) {
+
+                for (let r=0; r<app.config.levels[app.state.level].rows - 2; r++) {
+                    if ((b[r][c].type == b[r + 1][c].type) && (b[r][c].type == b[r + 2][c].type)) {
+                        let r1 = 0;
+                        let t1 = b[r][c].type;
+                        while (b[r + r1] && b[r + r1][c] && (b[r + r1][c].type == t1)) {
+                            matches.push({ row: r + r1, col: c });
+                            b[r + r1][c].exploded = 1;
+                            r1++;
+                        }
+                    }
+                }
+
+            }
+
+            return matches;
+        },
+        cleanBoard() {
+            let clean = []; 
+            for (let r=0; r<app.config.levels[app.state.level].rows; r++) {
+                clean[r] = [];
+                for (let c=0; c<app.config.levels[app.state.level].cols; c++) {
+                    clean[r][c] = {
+                        col: c,
+                        row: r,
+                        type: app.state.board[r][c].type
+                    }
+                }
+            }
+            return clean;
+        },
+        checkForMoves() {
+            let allmatches = [], allmoves = [];
+            let cleanboard = app.cleanBoard();
+            let seen = {};
+            for (let r=0; r<app.config.levels[app.state.level].rows; r++) {
+                for (let c=0; c<app.config.levels[app.state.level].cols; c++) {
+                    
+                    // First try moving piece up
+                    if (r > 0) {
+                        let b = JSON.parse(JSON.stringify(cleanboard));
+                        let tmp = b[r - 1][c];
+                        b[r - 1][c] = b[r][c];
+                        b[r][c] = tmp;
+                        
+                        let matches = app.getMatches(b);
+                        if (matches.length && !seen[`r${r}c${c}_r${r - 1}c${c}`]) {
+                            allmatches.push(matches);
+                            allmoves.push({from: [r, c], to: [r - 1, c], dir:1, undir: 2, matches: matches});
+                            seen[`r${r}c${c}_r${r - 1}c${c}`] = 1;
+                            seen[`r${r - 1}c${c}_r${r}c${c}`] = 1;
+                        }
+                    }
+                    
+                    // Next try moving piece down 
+                    if (r < app.config.levels[app.state.level].rows - 2) {
+                        let b = JSON.parse(JSON.stringify(cleanboard));
+                        let tmp = b[r + 1][c];
+                        b[r + 1][c] = b[r][c];
+                        b[r][c] = tmp;
+                        
+                        let matches = app.getMatches(b);
+                        if (matches.length && !seen[`r${r}c${c}_r${r + 1}c${c}`]) {
+                            
+                            allmatches.push(matches);
+                            allmoves.push({from: [r, c], to: [r + 1, c], dir: 2, undir: 1, matches: matches});
+                            seen[`r${r}c${c}_r${r + 1}c${c}`] = 1;
+                            seen[`r${r + 1}c${c}_r${r}c${c}`] = 1;
+                        }
+                    }
+                    
+                    // Now try moving piece left 
+                    if (c > 0) {
+                        let b = JSON.parse(JSON.stringify(cleanboard));
+                        let tmp = b[r][c - 1];
+                        b[r][c - 1] = b[r][c];
+                        b[r][c] = tmp;
+                        
+                        let matches = app.getMatches(b);
+                        if (matches.length && !seen[`r${r}c${c}_r${r}c${c - 1}`]) {
+                            allmatches.push(matches);
+                            allmoves.push({from: [r, c - 1], to: [r, c], dir: 3, undir: 4, matches: matches});
+                            seen[`r${r}c${c}_r${r}c${c - 1}`] = 1;
+                            seen[`r${r}c${c - 1}_r${r}c${c}`] = 1;
+                        }
+                    }
+                    
+                    // Next try moving piece right 
+                    if (c < app.config.levels[app.state.level].cols - 2) {
+                        let b = JSON.parse(JSON.stringify(cleanboard));
+                        let tmp = b[r][c + 1];
+                        b[r][c + 1] = b[r][c];
+                        b[r][c] = tmp;
+                        
+                        let matches = app.getMatches(b);
+                        
+                        if (matches.length && !seen[`r${r}c${c}_r${r}c${c + 1}`]) {
+                            allmatches.push(matches);
+                            allmoves.push({from: [r, c + 1], to: [r, c], dir: 4, undir: 3, matches: matches});
+                            seen[`r${r}c${c}_r${r}c${c + 1}`] = 1;
+                            seen[`r${r}c${c + 1}_r${r}c${c}`] = 1;
+                        }
+                            
+                    }
+                     
+                }
+            }
+            if (!allmoves.length) {
+                app.scrambleBoard();                
+            }
+            return allmoves;
+        },
+        refill() {
+            let b = app.state.board;
+            let cnt = 0;
+            for (let c=0; c<app.config.levels[app.state.level].cols; c++) {
+                cnt = 0;
+                for (let r=app.config.levels[app.state.level].rows - 1; r > -1; r--) {
+                    if (b[r][c].exploded) {
+                        b[r][c] = new Candy(r, c, '', cnt * 100);
+                        ++cnt;
+                    }
+                }
+            }
+            app.dumpBoard();
+        },
+        highlightMoves() {
+            // if (!app.playing) return;
+            let moves = app.checkForMoves();
+            let b = app.state.board;
+            $$(".highlight,.highlight-to,.hint1,.hint2,.hint3,.hint4").forEach(el=>el.classList.remove("highlight","highlight-to","hint1","hint2","hint3","hint4"));
+            if (moves.length) {
+
+                if (app.config.allhints) {
+                    for (let move of moves) {
+                        b[move.from[0]][move.from[1]].el.classList.add("highlight", `hint${move.dir}`);
+                        b[move.to[0]][move.to[1]].el.classList.add("highlight-to", `hint${move.undir}`);
+                    }
+                } else {
+
+                    if (app.state.hint > moves.length - 1) {
+                        app.state.hint = 0;
+                    }
+                    let move = moves[app.state.hint];
+                    
+                    if (move) {
+                        b[move.from[0]][move.from[1]].el.classList.add("highlight", `hint${move.dir}`);
+                        b[move.to[0]][move.to[1]].el.classList.add("highlight-to", `hint${move.undir}`);
+                    }
+                    app.state.hint++;
+                    if (app.state.hint > moves.length - 1) {
+                        app.state.hint = 0;
+                    }
+                    app.state.highlightTO.push( setTimeout(() => { app.highlightMoves(); }, 4000));
+                }
+            }
+        },
+        checkMatches(last) {
+            let matches = app.getMatches();
+            console.log("matches");
+            console.dir(matches);
+            Promise.all(app.explode(matches)).then((els) => {
+                console.log("** all explosions complete **");
+                if (app.getMatches().length) {
+                    app.checkMatches();
+                } else { 
+                    app.moves = app.checkForMoves();
+                }
+            });
+            setTimeout(() => { 
+                app.condense();
+                setTimeout(() => {
+                    app.refill();
+                }, 200);
+            }, 200);
+            app.dumpBoard();
+            app.checkForMoves();
+
+            return matches;
+        },
+        explode(cells) {
+            let els = [], seen = {};
+            for (let i=0; i<cells.length; i++) {
+                const cell = cells[i];
+                if (cell && !seen[`r${cell.row}c${cell.col}]`]) {
+                    els.push(app.state.board[cell.row][cell.col].explode(i*50));
+                    seen[`r${cell.row}c${cell.col}]`] = 1;
+                }
+            }
+            return els;
+        },
+
+        resizeCanvas() {
+            app.canvas.width = window.innerWidth - (window.innerWidth / 4);
+            app.canvas.height = window.innerHeight;
+            app.initializeGrid(app.config.levels[app.state.level].rows, app.config.levels[app.state.level].cols);
+        },
+        dumpBoard() {
+            let out = "<div style='font-family:monospace;'>";
+            for (let r=0; r<app.config.levels[app.state.level].rows; r++) {
+                for (let c=0; c<app.config.levels[app.state.level].cols; c++) {
+                    if (app.state.board[r][c].exploded) {
+                        out += `<span style='background:#c00;color:#fff;'>${app.state.board[r][c].type}</span>`;
+                    } else {
+                        out += app.state.board[r][c].type;
+                    }
+                }
+                out += "<br>\n";
+            }
+            out += "</div>";
+            $("#debug").innerHTML = out;
+
+        },
+        nextLevel(lvl) {
+            if (lvl!==undefined) {
+                app.state.level = lvl;
+            } else {
+                app.state.level++;
+                lvl = app.state.level;
+            }
+            app.state.highlightTO.forEach(id=>clearTimeout(id));
+            app.state.highlightTO = [];
+
+            $(".overlay").style.display = "flex";            
+            $(".overlay").style.opacity = 1;            
+            $("#levelname").innerHTML = app.config.levels[lvl].name;
+            $("#level-title").innerHTML = `<h1>Level ${lvl + 1}</h1><h2>"${app.config.levels[lvl].name}"</h2>`;
+            setTimeout(() => { $("#level-title").classList.add('showlevel'); }, 10);
+
+            setTimeout(() => { 
+                $(".overlay").style.opacity = 0;
+                setTimeout(() => { $(".overlay").style.display = "none";}, 300);
+                $("#level-title").classList.remove("showlevel"); 
+            }, 3000);
+            $$(".candy").forEach(el=>el.parentNode.removeChild(el));
+
+            app.goals = {};
+            
+            let goals = app.config.levels[lvl].goals;
+            let iconset = app.iconsets[app.config.levels[app.state.level].iconset];
+
+            let out = '<ul>';
+            let icons = [];
+            let seen = {};
+            for (let i=0; i < app.config.levels[lvl].pieces; i++) {
+                let pick;
+                do {
+                  pick = Math.floor(Math.random() * (iconset.length));
+                } while (seen[pick]);
+                seen[pick] = 1;
+                icons.push(iconset[pick]);
+            }
+            app.icons = icons;
+            for (let i=0; i < goals.collect.length; i++) {
+                let cndy = goals.collect[i];
+                let content = '';
+                let alt = '';
+                if (app.config.levels[app.state.level].iconset) {
+                    content = app.icons[cndy];
+                    alt = ' candy-alt';
+                }
+                out += `<li class='goal'><div class='goalIcon candy${cndy}${alt}'>${content}</div><div id="goal${cndy}">${goals.cnt[i]}</div></div></li>`;
+                app.goals[`candy${cndy}`] = goals.cnt[i];
+            }
+            app.goals.moves = goals.moves;
+            out += `<li title="Remaining turns"><span style="font-weight:900;">↻</span> <span id="moves">${goals.moves}</span></li></ul>`;
+            $("#goals").innerHTML = out;
+            
+            app.initializeGrid(app.config.levels[lvl].rows, app.config.levels[lvl].cols);
+            app.fillBoard();
+            Promise.all(app.todrop).then((vals) => {
+                console.log("all dropped!");
+                console.dir(vals);
+                app.checkMatches();
+            });
+            app.dumpBoard();
+            app.state.playing = 1;
+            setTimeout(() => { app.checkForMoves(); }, 4000);
+        },
+        gameover() {
+            $(".overlay").style.display = "flex";
+            $(".overlay").style.opacity = 1;            
+            $("#level-title").innerHTML = "<h1>GAME OVER</h1><h2>You ran out of turns!</h2><hr><h1><a onclick='app.newGame(); return false;'>Try Again?<a></h1>";  
+            $("#level-title").classList.remove("showlevel");
+            $("#level-title").classList.add("gameover");
+
+        },
+        updateScore() {
+            $("#scoreboard").innerHTML = app.state.score;
+            $("#currentlevel").innerHTML = app.state.level + 1;
+            app.checkGoals();
+        },
+        makePoof(x, y) {
+            let poof = document.createElement("img");
+            poof.src = "poof.apng.png";
+            poof.style.height = app.state.cellHeight + 'px';
+            poof.style.width = app.state.cellWidth + 'px';
+
+            poof.style.top = y + 'px';
+            poof.style.left = x + 'px';
+            $("main").append(poof);
+            
+            setTimeout(()=>{ $("main").removeChild(poof) }, 600);
+        },
+        completeLevel() {
+            $(".overlay").style.display = "flex";            
+            $(".overlay").style.opacity = 1;            
+            $("#level-title").innerHTML = `<h1>Level ${app.state.level + 1}<br>Success!</h1><h2>Next Up: "${app.config.levels[app.state.level + 1].name}"</h2>`;
+            setTimeout(() => { $("#level-title").classList.add('showlevel'); }, 10);
+            setTimeout(() => { $("#level-title").classList.remove('showlevel'); }, 2000);
+        },
+        checkGoals() {
+            if (app.goals && app.state.playing) {
+                let wanting = 0;
+                for ( const [key, val] of Object.entries(app.goals)) {
+                    if (key !== 'moves') {
+                        if (val > 0) {
+                            wanting = 1;
+                        }
+                    } else {
+                        if (val < 0) {
+                            console.log("checkGoals: no more moves");
+                            wanting = 1;
+                            app.state.playing = 0;
+                            app.gameover();
+                        }
+                    }
+                }
+                if (!wanting) {
+                    app.state.playing = 0;
+                    app.completeLevel();
+                    setTimeout(() => { app.nextLevel(); }, 4000);
+                }
+            }
+        }
+    };
+    
+    window.app = app;
+    app.init();
+})();
+    </script>
+</body>
+</html>
+

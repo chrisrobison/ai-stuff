@@ -1,0 +1,963 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Three.js Highway Racer</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            font-family: Arial, sans-serif;
+        }
+        #score {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            color: white;
+            font-size: 20px;
+            background-color: rgba(0,0,0,0.5);
+            padding: 5px 10px;
+            border-radius: 5px;
+        }
+        #gameOver {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: white;
+            font-size: 36px;
+            text-align: center;
+            display: none;
+            background-color: rgba(0,0,0,0.7);
+            padding: 20px 40px;
+            border-radius: 10px;
+        }
+        #restartBtn {
+            padding: 10px 20px;
+            font-size: 18px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            margin-top: 20px;
+        }
+        #instructions {
+            position: absolute;
+            bottom: 10px;
+            left: 10px;
+            color: white;
+            font-size: 16px;
+            background-color: rgba(0,0,0,0.5);
+            padding: 10px;
+            border-radius: 5px;
+        }
+        #speedometer {
+            position: absolute;
+            bottom: 10px;
+            right: 10px;
+            color: white;
+            background-color: rgba(0,0,0,0.5);
+            padding: 10px;
+            border-radius: 5px;
+            font-family: Arial, sans-serif;
+            font-size: 16px;
+        }
+    </style>
+</head>
+<body>
+    <div id="score">Score: 0</div>
+    <div id="gameOver">
+        Game Over<br>
+        <span id="finalScore">Score: 0</span><br>
+        <button id="restartBtn">Restart</button>
+    </div>
+    <div id="instructions">
+        SPACE to jump<br>
+        UP/DOWN arrows or W/S to accelerate/brake<br>
+        LEFT/RIGHT arrows or A/D to change lanes<br>
+        Avoid other cars!
+    </div>
+    <div id="speedometer">Speed: <span id="speedValue">0</span> km/h</div>
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script>
+        // Game variables
+        let scene, camera, renderer, player;
+        let obstacles = [];
+        let clouds = [];
+        let roadSegments = [];
+        let gameStarted = false;
+        let gameOver = false;
+        let score = 0;
+        let baseSpeed = 0.2;
+        let speed = baseSpeed;
+        let playerVelocity = 0;
+        let gravity = 0.01;
+        let jumpPower = 0.3;
+        let isJumping = false;
+        let moveLeft = false;
+        let moveRight = false;
+        let accelerating = false;
+        let braking = false;
+        let maxSpeed = 0.6;
+        let minSpeed = 0.05;
+        let accelerationRate = 0.005;
+        let brakeRate = 0.01;
+        let dragRate = 0.002;
+        let laneWidth = 2;
+        let roadCurvature = 0;
+        let targetCurvature = 0;
+        let curvatureChangeSpeed = 0.0005;
+        let distance = 0;
+        let nextCurveDistance = 300;
+        
+        // Initialize the game
+        function init() {
+            // Create scene
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x87CEEB);
+            scene.fog = new THREE.Fog(0x87CEEB, 50, 150);
+            
+            // Create camera
+            camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+            camera.position.set(0, 2.5, 5);
+            camera.lookAt(0, 0, -10);
+            
+            // Create renderer
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            document.body.appendChild(renderer.domElement);
+            
+            // Add lights
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
+            scene.add(ambientLight);
+            
+            const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+            directionalLight.position.set(1, 10, 5);
+            directionalLight.castShadow = true;
+            scene.add(directionalLight);
+            
+            createEnvironment();
+            createPlayer();
+            createSkyAndGround();
+            createClouds();
+            
+            // Event listeners
+            window.addEventListener('resize', onWindowResize);
+            window.addEventListener('keydown', onKeyDown);
+            window.addEventListener('keyup', onKeyUp);
+            
+            document.getElementById('restartBtn').addEventListener('click', restartGame);
+            
+            // Start game loop
+            animate();
+        }
+        
+        // Create sky and ground
+        function createSkyAndGround() {
+            // Create distant mountains
+            const mountainGeometry = new THREE.BufferGeometry();
+            const mountainVertices = [];
+            const mountainSegments = 50;
+            const mountainWidth = 300;
+            const mountainDepth = 100;
+            const mountainHeight = 15;
+            
+            for (let i = 0; i <= mountainSegments; i++) {
+                const x = (i / mountainSegments) * mountainWidth - mountainWidth / 2;
+                const z = -mountainDepth;
+                // Create jagged mountain ranges with Perlin-like noise
+                const height = mountainHeight * (0.5 + 0.5 * Math.sin(i * 0.2) * Math.sin(i * 0.05));
+                mountainVertices.push(x, 0, z);
+                mountainVertices.push(x, height, z);
+            }
+            
+            mountainGeometry.setAttribute('position', new THREE.Float32BufferAttribute(mountainVertices, 3));
+            
+            const mountainMaterial = new THREE.LineBasicMaterial({ color: 0x5D4037, linewidth: 1 });
+            const mountains = new THREE.LineSegments(mountainGeometry, mountainMaterial);
+            scene.add(mountains);
+            
+            // Create a ground plane
+            const groundGeometry = new THREE.PlaneGeometry(300, 300);
+            const groundMaterial = new THREE.MeshStandardMaterial({ 
+                color: 0x556B2F,
+                roughness: 0.8,
+                metalness: 0.2
+            });
+            const groundPlane = new THREE.Mesh(groundGeometry, groundMaterial);
+            groundPlane.rotation.x = -Math.PI / 2;
+            groundPlane.position.y = -0.5;
+            groundPlane.position.z = -150;
+            scene.add(groundPlane);
+        }
+        
+        // Create clouds
+        function createClouds() {
+            const cloudCount = 20;
+            
+            for (let i = 0; i < cloudCount; i++) {
+                const cloud = new THREE.Group();
+                
+                // Number of puffs in each cloud
+                const puffCount = Math.floor(Math.random() * 5) + 3;
+                
+                for (let j = 0; j < puffCount; j++) {
+                    const puffGeometry = new THREE.SphereGeometry(
+                        Math.random() * 2 + 1.5, // Random size
+                        7, 7
+                    );
+                    const puffMaterial = new THREE.MeshStandardMaterial({ 
+                        color: 0xFFFFFF,
+                        roughness: 0.3,
+                        metalness: 0.1,
+                        transparent: true,
+                        opacity: Math.random() * 0.3 + 0.5
+                    });
+                    const puff = new THREE.Mesh(puffGeometry, puffMaterial);
+                    
+                    // Position puffs relative to each other to form a cloud
+                    puff.position.set(
+                        j * (Math.random() * 2 - 1) * 2,
+                        Math.random() * 1 - 0.5,
+                        j * (Math.random() * 2 - 1) * 1
+                    );
+                    
+                    cloud.add(puff);
+                }
+                
+                // Position cloud in the sky
+                cloud.position.set(
+                    Math.random() * 200 - 100, // x: spread across width
+                    Math.random() * 20 + 15,   // y: height in sky
+                    Math.random() * -200 - 20  // z: depth from camera
+                );
+                
+                // Add cloud to scene and tracking array
+                scene.add(cloud);
+                clouds.push({
+                    mesh: cloud,
+                    speed: Math.random() * 0.02 + 0.01,
+                    direction: new THREE.Vector3(
+                        (Math.random() - 0.5) * 0.01,
+                        0,
+                        0
+                    )
+                });
+            }
+        }
+        
+        // Update clouds
+        function updateClouds() {
+            clouds.forEach(cloud => {
+                // Move cloud based on its direction and speed
+                cloud.mesh.position.add(cloud.direction.clone().multiplyScalar(cloud.speed));
+                
+                // Reset position if cloud moves out of view
+                if (cloud.mesh.position.x > 150) {
+                    cloud.mesh.position.x = -150;
+                } else if (cloud.mesh.position.x < -150) {
+                    cloud.mesh.position.x = 150;
+                }
+                
+                if (cloud.mesh.position.z > 20) {
+                    cloud.mesh.position.z = -200;
+                }
+                
+                // Slowly rotate some clouds for visual interest
+                cloud.mesh.rotation.y += cloud.speed * 0.01;
+            });
+        }
+        
+        // Create the environment (ground, etc.)
+        function createEnvironment() {
+            createRoad();
+            createRoadside();
+        }
+        
+        // Create curved road
+        function createRoad() {
+            // Create road segments
+            const segmentCount = 20;
+            const segmentLength = 15;
+            roadSegments = [];
+            
+            for (let i = 0; i < segmentCount; i++) {
+                // Create road segment
+                const segmentGeometry = new THREE.PlaneGeometry(10, segmentLength);
+                const segmentMaterial = new THREE.MeshStandardMaterial({ 
+                    color: 0x333333,
+                    roughness: 0.9,
+                    metalness: 0.1
+                });
+                const segment = new THREE.Mesh(segmentGeometry, segmentMaterial);
+                segment.rotation.x = -Math.PI / 2;
+                
+                // Initial straight placement
+                segment.position.z = -i * segmentLength;
+                segment.position.y = -0.49;
+                
+                scene.add(segment);
+                roadSegments.push(segment);
+                
+                // Add lane markings
+                addLaneMarkingsToSegment(segment, i, segmentLength);
+            }
+            
+            // Create initial road curve
+            updateRoadCurve(0);
+        }
+        
+        // Add lane markings to a road segment
+        function addLaneMarkingsToSegment(segment, segmentIndex, segmentLength) {
+            // Central yellow line
+            const yellowLineGeometry = new THREE.PlaneGeometry(0.3, segmentLength);
+            const yellowLineMaterial = new THREE.MeshStandardMaterial({ color: 0xFFFF00 });
+            const yellowLine = new THREE.Mesh(yellowLineGeometry, yellowLineMaterial);
+            yellowLine.rotation.x = -Math.PI / 2;
+            yellowLine.position.y = -0.48;
+            segment.add(yellowLine);
+            
+            // White lane markings (dashed)
+            const dashCount = 5;
+            const dashLength = segmentLength / (dashCount * 2);
+            
+            for (let i = 0; i < dashCount; i++) {
+                // Left lane dash
+                const leftDashGeometry = new THREE.PlaneGeometry(0.2, dashLength);
+                const leftDashMaterial = new THREE.MeshStandardMaterial({ color: 0xFFFFFF });
+                const leftDash = new THREE.Mesh(leftDashGeometry, leftDashMaterial);
+                leftDash.rotation.x = -Math.PI / 2;
+                leftDash.position.set(-3, -0.48, -segmentLength/2 + i * dashLength * 2 + dashLength/2);
+                segment.add(leftDash);
+                
+                // Right lane dash
+                const rightDashGeometry = new THREE.PlaneGeometry(0.2, dashLength);
+                const rightDashMaterial = new THREE.MeshStandardMaterial({ color: 0xFFFFFF });
+                const rightDash = new THREE.Mesh(rightDashGeometry, rightDashMaterial);
+                rightDash.rotation.x = -Math.PI / 2;
+                rightDash.position.set(3, -0.48, -segmentLength/2 + i * dashLength * 2 + dashLength/2);
+                segment.add(rightDash);
+            }
+        }
+        
+        // Update road curve based on current curvature
+        function updateRoadCurve(curvature) {
+            // Apply curvature to each road segment
+            let cumulativeX = 0;
+            let cumulativeZ = 0;
+            
+            for (let i = 0; i < roadSegments.length; i++) {
+                const segment = roadSegments[i];
+                const segmentLength = 15;
+                
+                // Calculate position based on curvature
+                cumulativeX += Math.sin(curvature) * segmentLength * (i * 0.05);
+                cumulativeZ -= Math.cos(curvature) * segmentLength * (1 - Math.abs(Math.sin(curvature)) * 0.3);
+                
+                // Position the segment
+                segment.position.x = cumulativeX;
+                segment.position.z = cumulativeZ;
+                
+                // Rotate the segment to match the curve
+                segment.rotation.y = curvature * (i * 0.05);
+            }
+        }
+        
+        // Create roadside elements
+        function createRoadside() {
+            // Create an array to hold the roadside elements
+            window.roadsideElements = [];
+            
+            // Add trees, signs, and buildings along the road
+            for (let i = 0; i < 60; i++) {
+                let element;
+                const elementType = Math.floor(Math.random() * 3);
+                const side = Math.random() > 0.5 ? 1 : -1;
+                
+                if (elementType === 0) {
+                    // Tree
+                    const trunkGeometry = new THREE.CylinderGeometry(0.3, 0.5, 2, 8);
+                    const trunkMaterial = new THREE.MeshStandardMaterial({ color: 0x8B4513 });
+                    const trunk = new THREE.Mesh(trunkGeometry, trunkMaterial);
+                    
+                    const topGeometry = new THREE.ConeGeometry(1.5, 3, 8);
+                    const topMaterial = new THREE.MeshStandardMaterial({ color: 0x228B22 });
+                    const top = new THREE.Mesh(topGeometry, topMaterial);
+                    top.position.y = 2.5;
+                    
+                    element = new THREE.Group();
+                    element.add(trunk);
+                    element.add(top);
+                } else if (elementType === 1) {
+                    // Building
+                    const buildingGeometry = new THREE.BoxGeometry(3, Math.random() * 3 + 2, 2);
+                    const buildingMaterial = new THREE.MeshStandardMaterial({ 
+                        color: Math.random() > 0.5 ? 0xA9A9A9 : 0xD3D3D3 
+                    });
+                    element = new THREE.Mesh(buildingGeometry, buildingMaterial);
+                } else {
+                    // Road sign
+                    const poleGeometry = new THREE.CylinderGeometry(0.1, 0.1, 2, 8);
+                    const poleMaterial = new THREE.MeshStandardMaterial({ color: 0x888888 });
+                    const pole = new THREE.Mesh(poleGeometry, poleMaterial);
+                    
+                    const signGeometry = new THREE.BoxGeometry(1, 0.8, 0.1);
+                    const signMaterial = new THREE.MeshStandardMaterial({ 
+                        color: Math.random() > 0.5 ? 0xFF0000 : 0x0000FF 
+                    });
+                    const sign = new THREE.Mesh(signGeometry, signMaterial);
+                    sign.position.y = 0.8;
+                    
+                    element = new THREE.Group();
+                    element.add(pole);
+                    element.add(sign);
+                }
+                
+                // Position roadside element
+                const distance = Math.random() * 5 + 8;
+                const zPosition = -Math.random() * 300;
+                element.position.set(side * distance, 0, zPosition);
+                
+                scene.add(element);
+                window.roadsideElements.push(element);
+            }
+        }
+        
+        // Create player car
+        function createPlayer() {
+            player = new THREE.Group();
+            
+            // Car body
+            const bodyGeometry = new THREE.BoxGeometry(1, 0.5, 2);
+            const bodyMaterial = new THREE.MeshStandardMaterial({ 
+                color: 0x1E90FF,
+                roughness: 0.3,
+                metalness: 0.8
+            });
+            const body = new THREE.Mesh(bodyGeometry, bodyMaterial);
+            body.position.y = 0.25;
+            player.add(body);
+            
+            // Car top/cabin
+            const topGeometry = new THREE.BoxGeometry(0.8, 0.4, 1);
+            const topMaterial = new THREE.MeshStandardMaterial({ 
+                color: 0x104E8B,
+                roughness: 0.2,
+                metalness: 0.5
+            });
+            const top = new THREE.Mesh(topGeometry, topMaterial);
+            top.position.y = 0.7;
+            top.position.z = 0.1;
+            player.add(top);
+            
+            // Wheels
+            const wheelGeometry = new THREE.CylinderGeometry(0.2, 0.2, 0.1, 16);
+            const wheelMaterial = new THREE.MeshStandardMaterial({ 
+                color: 0x111111,
+                roughness: 0.9,
+                metalness: 0.1
+            });
+            
+            // Front-left wheel
+            const flWheel = new THREE.Mesh(wheelGeometry, wheelMaterial);
+            flWheel.rotation.z = Math.PI / 2;
+            flWheel.position.set(-0.6, 0, 0.6);
+            player.add(flWheel);
+            
+            // Front-right wheel
+            const frWheel = new THREE.Mesh(wheelGeometry, wheelMaterial);
+            frWheel.rotation.z = Math.PI / 2;
+            frWheel.position.set(0.6, 0, 0.6);
+            player.add(frWheel);
+            
+            // Back-left wheel
+            const blWheel = new THREE.Mesh(wheelGeometry, wheelMaterial);
+            blWheel.rotation.z = Math.PI / 2;
+            blWheel.position.set(-0.6, 0, -0.6);
+            player.add(blWheel);
+            
+            // Back-right wheel
+            const brWheel = new THREE.Mesh(wheelGeometry, wheelMaterial);
+            brWheel.rotation.z = Math.PI / 2;
+            brWheel.position.set(0.6, 0, -0.6);
+            player.add(brWheel);
+            
+            // Headlights
+            const headlightGeometry = new THREE.BoxGeometry(0.2, 0.1, 0.1);
+            const headlightMaterial = new THREE.MeshStandardMaterial({ 
+                color: 0xFFFFFF,
+                emissive: 0xFFFF00,
+                emissiveIntensity: 0.5
+            });
+            
+            // Left headlight
+            const leftHeadlight = new THREE.Mesh(headlightGeometry, headlightMaterial);
+            leftHeadlight.position.set(-0.4, 0.3, 1);
+            player.add(leftHeadlight);
+            
+            // Right headlight
+            const rightHeadlight = new THREE.Mesh(headlightGeometry, headlightMaterial);
+            rightHeadlight.position.set(0.4, 0.3, 1);
+            player.add(rightHeadlight);
+            
+            player.position.set(0, 0.3, 0);
+            player.rotation.y = Math.PI; // Face forward
+            scene.add(player);
+        }
+        
+        // Generate random obstacles (cars)
+        function createObstacle() {
+            const carColors = [0xFF0000, 0x00FF00, 0xFFFF00, 0xFF00FF, 0x00FFFF, 0x800000, 0x008000, 0x808000];
+            const selectedColor = carColors[Math.floor(Math.random() * carColors.length)];
+            
+            // Create a car obstacle
+            const obstacle = new THREE.Group();
+            
+            // Car body
+            const bodyGeometry = new THREE.BoxGeometry(1, 0.5, 2);
+            const bodyMaterial = new THREE.MeshStandardMaterial({ 
+                color: selectedColor,
+                roughness: 0.3,
+                metalness: 0.8
+            });
+            const body = new THREE.Mesh(bodyGeometry, bodyMaterial);
+            body.position.y = 0.25;
+            obstacle.add(body);
+            
+            // Car top/cabin
+            const topGeometry = new THREE.BoxGeometry(0.8, 0.4, 1);
+            const topMaterial = new THREE.MeshStandardMaterial({ 
+                color: selectedColor, 
+                transparent: true,
+                opacity: 0.7,
+                roughness: 0.2,
+                metalness: 0.5
+            });
+            const top = new THREE.Mesh(topGeometry, topMaterial);
+            top.position.y = 0.7;
+            top.position.z = 0.1;
+            obstacle.add(top);
+            
+            // Wheels
+            const wheelGeometry = new THREE.CylinderGeometry(0.2, 0.2, 0.1, 12);
+            const wheelMaterial = new THREE.MeshStandardMaterial({ 
+                color: 0x111111,
+                roughness: 0.9,
+                metalness: 0.1
+            });
+            
+            // Add all four wheels
+            const wheelPositions = [
+                [-0.6, 0, 0.6],  // Front-left
+                [0.6, 0, 0.6],   // Front-right
+                [-0.6, 0, -0.6], // Back-left
+                [0.6, 0, -0.6]   // Back-right
+            ];
+            
+            wheelPositions.forEach(pos => {
+                const wheel = new THREE.Mesh(wheelGeometry, wheelMaterial);
+                wheel.rotation.z = Math.PI / 2;
+                wheel.position.set(...pos);
+                obstacle.add(wheel);
+            });
+            
+            // Add taillights
+            const tailLightGeometry = new THREE.BoxGeometry(0.2, 0.1, 0.05);
+            const tailLightMaterial = new THREE.MeshStandardMaterial({ 
+                color: 0xFF0000,
+                emissive: 0xFF0000,
+                emissiveIntensity: 0.5
+            });
+            
+            // Left taillight
+            const leftTailLight = new THREE.Mesh(tailLightGeometry, tailLightMaterial);
+            leftTailLight.position.set(-0.4, 0.3, -1);
+            obstacle.add(leftTailLight);
+            
+            // Right taillight
+            const rightTailLight = new THREE.Mesh(tailLightGeometry, tailLightMaterial);
+            rightTailLight.position.set(0.4, 0.3, -1);
+            obstacle.add(rightTailLight);
+            
+            // Position the obstacle on a curve
+            // Find the furthest visible road segment
+            const furthestSegment = roadSegments[roadSegments.length - 1];
+            
+            // Add some variance to lane position
+            const lanePosition = (Math.floor(Math.random() * 3) - 1) * (laneWidth / 2);
+            
+            // Position relative to the road curve
+            obstacle.position.set(
+                furthestSegment.position.x + lanePosition * Math.cos(roadCurvature),
+                0.3,
+                furthestSegment.position.z - lanePosition * Math.sin(roadCurvature)
+            );
+            
+            // Match rotation to road direction
+            obstacle.rotation.y = -roadCurvature;
+            
+            obstacles.push(obstacle);
+            scene.add(obstacle);
+        }
+        
+        // Handle window resize
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+        
+        // Handle keyboard input for key press
+        function onKeyDown(event) {
+            if (!gameStarted && !gameOver && (event.code === 'Space' || event.key === ' ' || 
+                event.code === 'ArrowLeft' || event.code === 'KeyA' || 
+                event.code === 'ArrowRight' || event.code === 'KeyD' ||
+                event.code === 'ArrowUp' || event.code === 'KeyW' ||
+                event.code === 'ArrowDown' || event.code === 'KeyS')) {
+                gameStarted = true;
+            }
+            
+            if (!gameOver) {
+                switch(event.code) {
+                    case 'Space':
+                        if (!isJumping) {
+                            jump();
+                        }
+                        break;
+                    case 'ArrowUp':
+                    case 'KeyW':
+                        accelerating = true;
+                        break;
+                    case 'ArrowDown':
+                    case 'KeyS':
+                        braking = true;
+                        break;
+                    case 'ArrowLeft':
+                    case 'KeyA':
+                        moveLeft = true;
+                        break;
+                    case 'ArrowRight':
+                    case 'KeyD':
+                        moveRight = true;
+                        break;
+                }
+            }
+        }
+        
+        // Handle keyboard input for key release
+        function onKeyUp(event) {
+            switch(event.code) {
+                case 'ArrowUp':
+                case 'KeyW':
+                    accelerating = false;
+                    break;
+                case 'ArrowDown':
+                case 'KeyS':
+                    braking = false;
+                    break;
+                case 'ArrowLeft':
+                case 'KeyA':
+                    moveLeft = false;
+                    break;
+                case 'ArrowRight':
+                case 'KeyD':
+                    moveRight = false;
+                    break;
+            }
+        }
+        
+        // Jump function
+        function jump() {
+            if (!isJumping) {
+                playerVelocity = jumpPower;
+                isJumping = true;
+                
+                // Add a small speed boost when jumping
+                if (speed < maxSpeed - 0.05) {
+                    speed += 0.05;
+                }
+            }
+        }
+        
+        // Update the speedometer display
+        function updateSpeedometer() {
+            // Convert game speed to a more readable value (km/h for display)
+            const displaySpeed = Math.floor((speed / baseSpeed) * 100);
+            document.getElementById('speedValue').textContent = displaySpeed;
+            
+            // Change color based on speed
+            const speedValue = document.getElementById('speedValue');
+            if (displaySpeed >= 150) {
+                speedValue.style.color = '#FF0000'; // Red for high speed
+            } else if (displaySpeed >= 125) {
+                speedValue.style.color = '#FFA500'; // Orange for medium-high speed
+            } else if (displaySpeed >= 100) {
+                speedValue.style.color = '#FFFF00'; // Yellow for normal speed
+            } else {
+                speedValue.style.color = '#00FF00'; // Green for low speed
+            }
+        }
+        
+        // Update player position and speed
+        function updatePlayer() {
+            // Handle speed controls
+            if (accelerating && speed < maxSpeed) {
+                speed += accelerationRate;
+            } else if (braking && speed > minSpeed) {
+                speed -= brakeRate;
+            } else if (!accelerating && speed > baseSpeed) {
+                // Gradually return to base speed when not accelerating
+                speed -= dragRate;
+            } else if (!braking && speed < baseSpeed) {
+                // Gradually return to base speed when not braking
+                speed += dragRate;
+            }
+            
+            // Keep speed within limits
+            speed = Math.max(minSpeed, Math.min(maxSpeed, speed));
+            
+            // Handle vertical movement (jumping)
+            playerVelocity -= gravity;
+            player.position.y += playerVelocity;
+            
+            // Check if player is on the ground
+            if (player.position.y <= 0.3) {
+                player.position.y = 0.3;
+                playerVelocity = 0;
+                isJumping = false;
+            }
+            
+            // Calculate lateral speed based on current speed (faster car = faster lane changes)
+            const lateralSpeed = 0.15 * (0.8 + speed / baseSpeed * 0.2);
+            
+            // Calculate lateral movement direction based on road curvature
+            const moveDirection = new THREE.Vector3(
+                moveRight ? 1 : (moveLeft ? -1 : 0),
+                0,
+                0
+            );
+            
+            // Rotate the movement direction based on road curvature
+            moveDirection.applyAxisAngle(new THREE.Vector3(0, 1, 0), roadCurvature);
+            
+            // Apply lateral movement
+            if ((moveLeft || moveRight) && player.position.x > -laneWidth*1.5 && player.position.x < laneWidth*1.5) {
+                player.position.x += moveDirection.x * lateralSpeed;
+            }
+
+            // Add car steering rotation when moving for visual feedback
+            if (moveLeft && !moveRight) {
+                player.rotation.y = Math.PI + Math.PI / 16 + roadCurvature; // Slight turn left
+
+                // Tilt car a little
+                player.rotation.z = Math.PI / 64;
+            } else if (moveRight && !moveLeft) {
+                player.rotation.y = Math.PI - Math.PI / 16 + roadCurvature; // Slight turn right
+
+                // Tilt car a little
+                player.rotation.z = -Math.PI / 64;
+            } else {
+                player.rotation.y = Math.PI + roadCurvature; // Face forward with road curve
+                player.rotation.z = 0; // No tilt
+            }
+
+            // Tilt car forward when accelerating and backward when braking
+            // Don't tilt on x-axis when jumping
+            if (!isJumping) {
+                if (accelerating) {
+                    player.rotation.x = -Math.PI / 64; // Tilt down (front up)
+                } else if (braking) {
+                    player.rotation.x = Math.PI / 64; // Tilt up (front down)
+                } else {
+                    player.rotation.x = 0; // Level
+                }
+            } else {
+                // When jumping, add a slight downward tilt for style
+                player.rotation.x = Math.PI / 32;
+            }
+
+            // Update the speedometer display
+            updateSpeedometer();
+        }
+
+        // Update obstacles
+        function updateObstacles() {
+            // Move existing obstacles along the curved road
+            for (let i = obstacles.length - 1; i >= 0; i--) {
+                // Move obstacle forward
+                obstacles[i].position.z += speed * Math.cos(roadCurvature);
+                obstacles[i].position.x += speed * Math.sin(roadCurvature);
+
+                // Check for collision
+                if (checkCollision(player, obstacles[i])) {
+                    endGame();
+                }
+
+                // Remove obstacles that are behind the player
+                if (obstacles[i].position.z > 5) {
+                    scene.remove(obstacles[i]);
+                    obstacles.splice(i, 1);
+                    score++;
+                    updateScore();
+
+                    // Increase speed gradually
+                    if (score % 5 === 0 && baseSpeed < maxSpeed - 0.05) {
+                        baseSpeed += 0.01;
+                    }
+                }
+            }
+
+            // Generate new obstacles
+            if (gameStarted && !gameOver && Math.random() < 0.02) {
+                createObstacle();
+            }
+        }
+
+        // Update roadside elements position
+        function updateRoadside() {
+            if (!window.roadsideElements) return;
+
+            window.roadsideElements.forEach(element => {
+                // Move element forward along the curved road
+                element.position.z += speed * Math.cos(roadCurvature);
+                element.position.x += speed * Math.sin(roadCurvature);
+
+                // If element passes the camera, reset it to far distance
+                if (element.position.z > 20) {
+                    const side = Math.random() > 0.5 ? 1 : -1;
+                    const distance = Math.random() * 5 + 12;
+
+                    // Position based on current road curve at the furthest segment
+                    const furthestSegment = roadSegments[roadSegments.length - 1];
+                    const angle = roadCurvature;
+
+                    element.position.set(
+                        furthestSegment.position.x + side * distance * Math.cos(angle),
+                        0,
+                        furthestSegment.position.z - side * distance * Math.sin(angle) - Math.random() * 20
+                    );
+                }
+            });
+        }
+
+        // Update road curvature
+        function updateRoadCurvature() {
+            // Increase distance traveled
+            distance += speed;
+
+            // Check if it's time for a new curve
+            if (distance >= nextCurveDistance) {
+                // Set new target curvature between -0.5 and 0.5 radians
+                targetCurvature = (Math.random() - 0.5) * 0.5;
+
+                // Set the next curve distance between 200-500 units
+                nextCurveDistance = distance + 200 + Math.random() * 300;
+            }
+
+            // Gradually transition to target curvature
+            if (Math.abs(roadCurvature - targetCurvature) > 0.01) {
+                roadCurvature += (targetCurvature - roadCurvature) * curvatureChangeSpeed * speed * 10;
+            }
+
+            // Update the road geometry based on curvature
+            updateRoadCurve(roadCurvature);
+        }
+
+        // Simple collision detection
+        function checkCollision(obj1, obj2) {
+            const obj1Box = new THREE.Box3().setFromObject(obj1);
+            const obj2Box = new THREE.Box3().setFromObject(obj2);
+
+            return obj1Box.intersectsBox(obj2Box);
+        }
+
+        // Update score display
+        function updateScore() {
+            document.getElementById('score').textContent = `Score: ${score}`;
+        }
+
+        // End the game
+        function endGame() {
+            gameOver = true;
+            document.getElementById('finalScore').textContent = `Score: ${score}`;
+            document.getElementById('gameOver').style.display = 'block';
+        }
+
+        // Restart the game
+        function restartGame() {
+            // Reset game state
+            gameOver = false;
+            score = 0;
+            speed = baseSpeed;
+            distance = 0;
+            nextCurveDistance = 300;
+            roadCurvature = 0;
+            targetCurvature = 0;
+            updateScore();
+
+            // Reset player
+            player.position.set(0, 0.3, 0);
+            player.rotation.y = Math.PI;
+            player.rotation.z = 0;
+            player.rotation.x = 0;
+            playerVelocity = 0;
+            isJumping = false;
+            moveLeft = false;
+            moveRight = false;
+            accelerating = false;
+            braking = false;
+
+            // Reset road to straight
+            updateRoadCurve(0);
+
+            // Remove obstacles
+            for (let i = obstacles.length - 1; i >= 0; i--) {
+                scene.remove(obstacles[i]);
+            }
+            obstacles = [];
+
+            document.getElementById('gameOver').style.display = 'none';
+        }
+
+        // Main game loop
+        function animate() {
+            requestAnimationFrame(animate);
+
+            if (gameStarted && !gameOver) {
+                updatePlayer();
+                updateObstacles();
+                updateRoadside();
+                updateRoadCurvature();
+                updateClouds();
+
+                // Check if any road segments need repositioning
+                const firstSegment = roadSegments[0];
+                if (firstSegment.position.z > 20) {
+                    // Move this segment to the back
+                    const lastSegment = roadSegments[roadSegments.length - 1];
+                    const segmentLength = 15;
+
+                    // Calculate new position based on the curve
+                    const angle = roadCurvature;
+                    const newX = lastSegment.position.x + Math.sin(angle) * segmentLength;
+                    const newZ = lastSegment.position.z - Math.cos(angle) * segmentLength;
+
+                    firstSegment.position.set(newX, -0.49, newZ);
+                    firstSegment.rotation.y = angle;
+
+                    // Move segment to end of array
+                    roadSegments.push(roadSegments.shift());
+                }
+            }
+
+            renderer.render(scene, camera);
+        }
+
+        // Start the game
+        init();
+    </script>
+</body>
+</html>

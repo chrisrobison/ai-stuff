@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>DOM Popcorn Physics</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background: #222;
+            height: 100vh;
+            cursor: pointer;
+        }
+
+        .kernel {
+            position: absolute;
+            will-change: transform;
+            transform-origin: center center;
+            transition: scale 50ms ease-out, rotate 200ms linear;
+            height: 200px;
+            width: 200px;
+            scale: 0;
+            rotate: -360deg
+        }
+        
+        .kernel.pop {
+            scale: 1;
+            rotate: 360deg;
+        }
+
+        .kernel::before {
+            content: '';
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            background-image: url('/popcorn.png');
+            background-size: cover;
+            background-repeat: no-repeat;
+            background-position: center;
+            border-radius: 40% 60% 55% 45% / 55% 45% 55% 45%;
+            transform: rotate(var(--rotation));
+            display: inline-block;
+        }
+
+        @keyframes pop {
+            0% { 
+                transform: scale(0) rotate(var(--rotation));
+                filter: brightness(1.2);
+            }
+            50% { 
+                filter: brightness(1);
+            }
+            100% { 
+                transform: scale(1) rotate(var(--rotation));
+                background: #FFF8DC;
+            }
+        }
+
+        @keyframes spin {
+            to { 
+                transform: rotate(calc(var(--rotation) + 360deg));
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="kernel"></div>
+    <script>
+        class Kernel {
+            constructor(x, y) {
+                this.x = x;
+                this.y = y;
+                this.vx = (Math.random() - 0.5) * 6;
+                this.vy = 0;
+                this.element = document.createElement('div');
+                this.element.className = 'kernel';
+                
+                // Random size variation (20px to 40px)
+                this.size = 100 + Math.random() * 200;
+                this.element.style.width = `${this.size}px`;
+                this.element.style.height = `${this.size}px`;
+                
+                // Random initial rotation and spin duration
+                this.rotation = Math.random() * 360;
+                const spinDuration = 2 + Math.random() * 4 + 's';
+                this.element.style.setProperty('--rotation', `${this.rotation}deg`);
+                this.element.style.setProperty('--spin-duration', spinDuration);
+                
+                // Physics properties
+                this.gravity = 0.5;
+                this.bounce = 0.7;
+                this.friction = 0.99;
+                
+                // Initialize position
+                this.updatePosition();
+                document.body.appendChild(this.element);
+
+                setTimeout(()=>{ 
+                    this.element.classList.add('pop');
+                }, 10);
+            }
+
+            updatePosition() {
+                this.element.style.transform = `translate(${this.x}px, ${this.y}px)`;
+            }
+
+            update() {
+                // Apply gravity
+                this.vy += this.gravity;
+                
+                // Update position
+                this.x += this.vx;
+                this.y += this.vy;
+                
+                // Window bounds
+                const bounds = document.body.getBoundingClientRect();
+                
+                // Bounce off walls
+                if (this.x + this.size > bounds.width) {
+                    this.x = bounds.width - this.size;
+                    this.vx *= -this.bounce;
+                }
+                if (this.x < 0) {
+                    this.x = 0;
+                    this.vx *= -this.bounce;
+                }
+                
+                // Bounce off floor
+                if (this.y + this.size > bounds.height) {
+                    this.y = bounds.height - this.size;
+                    this.vy *= -this.bounce;
+                    this.vx *= this.friction;
+                }
+
+                // Apply air resistance
+                this.vx *= 0.99;
+                this.vy *= 0.99;
+
+                this.updatePosition();
+                return this.isOffscreen(bounds);
+            }
+
+            isOffscreen(bounds) {
+                return this.y > bounds.height + 100;
+            }
+
+            checkCollision(other) {
+                const dx = (other.x + other.size/2) - (this.x + this.size/2);
+                const dy = (other.y + other.size/2) - (this.y + this.size/2);
+                const distance = Math.sqrt(dx * dx + dy * dy);
+                const minDistance = (this.size + other.size) / 2;
+
+                if (distance < minDistance) {
+                    // Collision response
+                    const normalX = dx / distance;
+                    const normalY = dy / distance;
+
+                    const relativeVelocityX = this.vx - other.vx;
+                    const relativeVelocityY = this.vy - other.vy;
+
+                    const impulse = (relativeVelocityX * normalX + relativeVelocityY * normalY) * this.bounce;
+
+                    this.vx -= impulse * normalX;
+                    this.vy -= impulse * normalY;
+                    other.vx += impulse * normalX;
+                    other.vy += impulse * normalY;
+
+                    // Prevent overlapping
+                    const overlap = (minDistance - distance) / 2;
+                    this.x -= overlap * normalX;
+                    this.y -= overlap * normalY;
+                    other.x += overlap * normalX;
+                    other.y += overlap * normalY;
+
+                    // Update positions after collision
+                    this.updatePosition();
+                    other.updatePosition();
+                }
+            }
+
+            remove() {
+                this.element.remove();
+            }
+        }
+
+        const kernels = [];
+        let isMouseDown = false;
+        let lastSpawnTime = 0;
+        const spawnInterval = 100; // Increased interval for better visual effect
+
+        document.body.addEventListener('mousedown', () => {
+            isMouseDown = true;
+        });
+
+        document.body.addEventListener('mouseup', () => {
+            isMouseDown = false;
+        });
+
+        document.body.addEventListener('mouseleave', () => {
+            isMouseDown = false;
+        });
+
+        function animate() {
+            const now = Date.now();
+            
+            // Spawn new kernel if mouse is held down
+            if (isMouseDown && now - lastSpawnTime > spawnInterval) {
+                const bounds = document.body.getBoundingClientRect();
+                const kernel = new Kernel(
+                    bounds.width / 2 + (Math.random() - 0.5) * 50,
+                    50 + Math.random() * 20
+                );
+                kernels.push(kernel);
+                lastSpawnTime = now;
+            }
+
+            // Update all kernels
+            for (let i = kernels.length - 1; i >= 0; i--) {
+                const isOffscreen = kernels[i].update();
+                
+                // Check collisions
+                for (let j = i - 1; j >= 0; j--) {
+                    kernels[i].checkCollision(kernels[j]);
+                }
+
+                // Remove if offscreen
+                if (isOffscreen) {
+                    kernels[i].remove();
+                    kernels.splice(i, 1);
+                }
+            }
+
+            requestAnimationFrame(animate);
+        }
+
+        animate();
+    </script>
+</body>
+</html>

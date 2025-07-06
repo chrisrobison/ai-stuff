@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Placer Gold Deposition Simulation</title>
+  <style>
+    body { margin: 0; overflow: hidden; background-color: #111; }
+    canvas { display: block; }
+  </style>
+</head>
+<body>
+  <canvas id="simulationCanvas"></canvas>
+  
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.7.0/p5.min.js"></script>
+  <script>
+    let riverPath = [];
+    let particles = [];
+    let goldParticles = [];
+    const particleCount = 500;
+    const goldRatio = 0.05; // 5% particles are gold
+
+    function setup() {
+      createCanvas(windowWidth, windowHeight);
+      createRiverPath();
+      for (let i = 0; i < particleCount; i++) {
+        particles.push(new Particle(false));
+      }
+      for (let i = 0; i < particleCount * goldRatio; i++) {
+        goldParticles.push(new Particle(true));
+      }
+    }
+
+    function draw() {
+      background(17);
+      drawRiver();
+      particles.forEach(p => p.updateAndShow());
+      goldParticles.forEach(p => p.updateAndShow());
+    }
+
+    function createRiverPath() {
+      let x = 0;
+      let y = height / 2;
+      let direction = 0;
+
+      while (x < width) {
+        riverPath.push({ x, y });
+
+        if (random() < 0.05) direction += random([-PI / 6, PI / 6]);
+        if (random() < 0.1) direction += random([-PI / 12, PI / 12]);
+        
+        x += 10;
+        y += sin(direction) * random(5, 20);
+
+        if (random() < 0.03) { // Random head dam effect
+          riverPath.push({ x, y: y - random(30, 50) });
+        }
+      }
+    }
+
+    function drawRiver() {
+      noFill();
+      stroke(70, 130, 180);
+      strokeWeight(30);
+      beginShape();
+      riverPath.forEach(p => vertex(p.x, p.y));
+      endShape();
+    }
+
+    class Particle {
+      constructor(isGold) {
+        this.pos = createVector(random(width), random(height / 2 - 50, height / 2 + 50));
+        this.vel = createVector(random(-1, 1), random(-1, 1));
+        this.isGold = isGold;
+        this.color = isGold ? color(212, 175, 55) : color(200, 200, 255, 150);
+      }
+
+      updateAndShow() {
+        let closestPoint = this.findClosestRiverPoint();
+        let flowDirection = p5.Vector.sub(createVector(closestPoint.x + 1, closestPoint.y), createVector(closestPoint.x, closestPoint.y));
+        flowDirection.setMag(1.5);
+
+        this.vel.add(flowDirection);
+        this.vel.limit(2);
+        this.pos.add(this.vel);
+
+        if (dist(this.pos.x, this.pos.y, closestPoint.x, closestPoint.y) > 50) {
+          this.pos = createVector(closestPoint.x, closestPoint.y);
+        }
+
+        if (this.isGold && random() < 0.005) { 
+          this.vel.mult(0); 
+        }
+
+        fill(this.color);
+        noStroke();
+        ellipse(this.pos.x, this.pos.y, this.isGold ? 4 : 2);
+      }
+
+      findClosestRiverPoint() {
+        let minDist = Infinity;
+        let closest = riverPath[0];
+        riverPath.forEach(p => {
+          let d = dist(this.pos.x, this.pos.y, p.x, p.y);
+          if (d < minDist) {
+            minDist = d;
+            closest = p;
+          }
+        });
+        return closest;
+      }
+    }
+
+    function windowResized() {
+      resizeCanvas(windowWidth, windowHeight);
+    }
+  </script>
+</body>
+</html>

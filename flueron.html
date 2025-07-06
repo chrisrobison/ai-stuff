@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Random Fleuron Generator</title>
+  <style>
+    body {
+      font-family: sans-serif;
+      text-align: center;
+      background: #fdfcf9;
+      padding: 2em;
+    }
+    button {
+      margin-bottom: 1em;
+      padding: 0.5em 1em;
+      font-size: 1.2em;
+      cursor: pointer;
+    }
+    svg {
+      border: 1px solid #ccc;
+      background: white;
+    }
+  </style>
+</head>
+<body>
+  <h1>Fleuron Generator</h1>
+  <button onclick="generateFleuron()">Generate Fleuron</button>
+  <div id="fleuron-container"></div>
+
+  <script>
+    function generateFleuron() {
+      const container = document.getElementById("fleuron-container");
+      container.innerHTML = ""; // Clear previous
+
+      const svgNS = "http://www.w3.org/2000/svg";
+      const size = 200;
+      const svg = document.createElementNS(svgNS, "svg");
+      svg.setAttribute("width", size);
+      svg.setAttribute("height", size);
+      svg.setAttribute("viewBox", `0 0 ${size} ${size}`);
+
+      const centerX = size / 2;
+      const centerY = size / 2;
+
+      const petalCount = Math.floor(Math.random() * 5 + 4); // 4–8 petals
+      const radius = Math.random() * 40 + 30;
+
+      for (let i = 0; i < petalCount; i++) {
+        const angle = (2 * Math.PI * i) / petalCount;
+        const x = centerX + Math.cos(angle) * radius;
+        const y = centerY + Math.sin(angle) * radius;
+
+        const circle = document.createElementNS(svgNS, "circle");
+        circle.setAttribute("cx", x);
+        circle.setAttribute("cy", y);
+        circle.setAttribute("r", Math.random() * 8 + 4);
+        circle.setAttribute("fill", randomColor());
+        svg.appendChild(circle);
+      }
+
+      const center = document.createElementNS(svgNS, "circle");
+      center.setAttribute("cx", centerX);
+      center.setAttribute("cy", centerY);
+      center.setAttribute("r", 10);
+      center.setAttribute("fill", randomColor());
+      svg.appendChild(center);
+
+      container.appendChild(svg);
+    }
+
+    function randomColor() {
+      const colors = ["#000", "#444", "#666", "#888", "#333", "#111"];
+      return colors[Math.floor(Math.random() * colors.length)];
+    }
+  </script>
+</body>
+</html>

@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SVG Island Map with feTurbulence Noise</title>
+    <style>
+        body { text-align: center; background: #333; color: white; font-family: sans-serif; }
+        svg { border: 1px solid white; background: black; display: block; margin: auto; cursor: pointer; }
+        polygon { stroke: black; stroke-width: 1; transition: fill 0.2s ease-in-out; filter: url(#terrainNoise); }
+        .selected { stroke: yellow !important; stroke-width: 3; }
+    </style>
+</head>
+<body>
+    <h1>SVG Island Map with feTurbulence Noise</h1>
+    <svg id="mapSvg" width="800" height="600">
+        <!-- Noise filter for terrain variation -->
+        <defs>
+            <filter id="terrainNoise" x="0" y="0" width="100%" height="100%">
+                <feTurbulence type="fractalNoise" baseFrequency="0.01 0.02" numOctaves="3" seed="5"/>
+                <feDisplacementMap in="SourceGraphic" scale="10"/>
+            </filter>
+        </defs>
+    </svg>
+
+    <!-- Load D3-Delaunay -->
+    <script src="https://cdn.jsdelivr.net/npm/d3-delaunay@6"></script>
+
+    <script>
+        const svg = document.getElementById("mapSvg");
+
+        class PolygonalMap {
+            constructor(width, height, pointCount, relaxationSteps = 3) {
+                this.width = width;
+                this.height = height;
+                this.pointCount = pointCount;
+                this.relaxationSteps = relaxationSteps;
+                this.points = [];
+                this.selectedPolygon = null;
+                this.delaunay = null;
+                this.voronoi = null;
+
+                this.generateIslandPoints();
+                this.relaxPoints();
+                this.computeVoronoi();
+                this.assignElevation();
+                this.render();
+            }
+
+            generateIslandPoints() {
+                const centerX = this.width / 2;
+                const centerY = this.height / 2;
+                const maxRadius = Math.min(this.width, this.height) * 0.4; // Maximum island radius
+
+                for (let i = 0; i < this.pointCount; i++) {
+                    let angle = Math.random() * Math.PI * 2; // Random angle
+                    let baseRadius = maxRadius * (0.7 + 0.3 * Math.sin(angle * 3)); // Sine wave for organic shape
+                    let noiseFactor = Math.random() * 0.2; // Randomized roughness
+                    let radius = baseRadius + noiseFactor * maxRadius; // Apply variation
+
+                    let x = centerX + radius * Math.cos(angle);
+                    let y = centerY + radius * Math.sin(angle);
+
+                    this.points.push([x, y]);
+                }
+            }
+
+            relaxPoints() {
+                for (let i = 0; i < this.relaxationSteps; i++) {
+                    this.computeVoronoi();
+                    let newPoints = [];
+
+                    for (let j = 0; j < this.points.length; j++) {
+                        let polygon = this.voronoi.cellPolygon(j);
+                        if (!polygon) continue;
+
+                        let centroid = this.getCentroid(polygon);
+                        newPoints.push([centroid.x, centroid.y]);
+                    }
+
+                    this.points = newPoints;
+                }
+            }
+
+            computeVoronoi() {
+                const Delaunay = window.d3.Delaunay;
+                this.delaunay = Delaunay.from(this.points);
+                this.voronoi = this.delaunay.voronoi([0, 0, this.width, this.height]);
+            }
+
+            getCentroid(polygon) {
+                let sumX = 0, sumY = 0, count = polygon.length;
+
+                for (let [x, y] of polygon) {
+                    sumX += x;
+                    sumY += y;
+                }
+
+                return { x: sumX / count, y: sumY / count };
+            }
+
+            assignElevation() {
+                const centerX = this.width / 2;
+                const centerY = this.height / 2;
+                this.elevation = [];
+
+                for (let i = 0; i < this.points.length; i++) {
+                    let [x, y] = this.points[i];
+                    let dx = x - centerX;
+                    let dy = y - centerY;
+                    let distance = Math.sqrt(dx * dx + dy * dy) / (this.width / 2);
+                    this.elevation[i] = 1.0 - Math.min(1, distance);
+                }
+            }
+
+            getBiome(elevation) {
+                if (elevation < 0.2) return "#4a90e2"; // Ocean
+                if (elevation < 0.25) return "#f4e3a1"; // Beach
+                if (elevation < 0.5) return "#7bc47f"; // Grassland
+                if (elevation < 0.7) return "#367c2b"; // Forest
+                if (elevation < 0.9) return "#7d5a4f"; // Mountain
+                return "#ffffff"; // Snow
+            }
+
+            render() {
+                svg.innerHTML += ""; // Keep noise filter intact
+
+                for (let i = 0; i < this.points.length; i++) {
+                    let polygon = this.voronoi.cellPolygon(i);
+                    if (!polygon) continue;
+
+                    let pointsStr = polygon.map(p => p.join(",")).join(" ");
+                    let elevation = this.elevation[i];
+                    let biomeColor = this.getBiome(elevation);
+
+                    let polygonElement = document.createElementNS("http://www.w3.org/2000/svg", "polygon");
+                    polygonElement.setAttribute("points", pointsStr);
+                    polygonElement.setAttribute("fill", biomeColor);
+                    polygonElement.dataset.index = i;
+
+                    svg.appendChild(polygonElement);
+                }
+            }
+        }
+
+        window.onload = () => {
+            new PolygonalMap(800, 600, 200, 3);
+        };
+    </script>
+</body>
+</html>

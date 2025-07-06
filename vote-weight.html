@@ -1,0 +1,449 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Electoral Vote Weight Comparison</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .container {
+            display: flex;
+            flex-direction: column;
+            gap: 40px;
+        }
+        .chart-container {
+            width: 100%;
+            height: 400px;
+            margin-bottom: 20px;
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .chart-title {
+            font-size: 18px;
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+        .stats-container {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            background-color: #f5f5f5;
+            padding: 20px;
+            border-radius: 8px;
+            margin-top: 20px;
+        }
+        .stats-header {
+            font-size: 16px;
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+        .stats-value {
+            font-weight: bold;
+        }
+        .footer {
+            font-size: 14px;
+            margin-top: 20px;
+        }
+        .sources {
+            margin-top: 10px;
+        }
+        .sources ul {
+            padding-left: 20px;
+        }
+        .note {
+            font-style: italic;
+            margin-top: 10px;
+        }
+        .conclusion {
+            font-size: 18px;
+            font-weight: bold;
+            text-align: center;
+            margin: 20px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>Electoral Vote Weight Comparison</h1>
+        <h2>Smallest States (Wyoming, Vermont, Alaska) vs. Largest States (California, Texas, Florida)</h2>
+    </div>
+    
+    <div class="container">
+        <div>
+            <div class="chart-title">Electoral Votes per Million Residents</div>
+            <div class="chart-container">
+                <canvas id="electoralVotesPerMillionChart"></canvas>
+            </div>
+        </div>
+        
+        <div>
+            <div class="chart-title">Population per Electoral Vote</div>
+            <div class="chart-container">
+                <canvas id="populationPerElectoralVoteChart"></canvas>
+            </div>
+        </div>
+
+        <div>
+            <div class="chart-title">Relative Voting Power (Wyoming as baseline)</div>
+            <div class="chart-container">
+                <canvas id="relativeVotingPowerChart"></canvas>
+            </div>
+        </div>
+
+        <div>
+            <div class="chart-title">Small States vs. Large States (Average)</div>
+            <div class="chart-container">
+                <canvas id="smallVsLargeChart"></canvas>
+            </div>
+        </div>
+        
+        <div class="conclusion" id="conclusion"></div>
+        
+        <div class="stats-container">
+            <div>
+                <div class="stats-header">Small States (Average)</div>
+                <div>Electoral votes per million: <span class="stats-value" id="smallEvPerMillion"></span></div>
+                <div>Residents per electoral vote: <span class="stats-value" id="smallResidentsPerEv"></span></div>
+            </div>
+            <div>
+                <div class="stats-header">Large States (Average)</div>
+                <div>Electoral votes per million: <span class="stats-value" id="largeEvPerMillion"></span></div>
+                <div>Residents per electoral vote: <span class="stats-value" id="largeResidentsPerEv"></span></div>
+            </div>
+        </div>
+        
+        <div class="footer">
+            <div class="sources">
+                <div><strong>Data sources:</strong></div>
+                <ul>
+                    <li>Population data: 2020 US Census</li>
+                    <li>Electoral votes: 2024 presidential election</li>
+                </ul>
+            </div>
+            <div class="note">
+                Note: This visualization compares the mathematical weight of votes based on the Electoral College system, 
+                not accounting for battleground state effects or other political factors that may affect practical voting power.
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Data for the electoral vote analysis
+        const stateData = [
+            // Smallest states by population
+            {
+                state: 'Wyoming',
+                population: 576851,
+                electoralVotes: 3,
+                votersPerElectoralVote: Math.round(576851 / 3),
+                voteWeight: ((3 / 576851) * 1000000).toFixed(2),
+                category: 'Small'
+            },
+            {
+                state: 'Vermont',
+                population: 643077,
+                electoralVotes: 3,
+                votersPerElectoralVote: Math.round(643077 / 3),
+                voteWeight: ((3 / 643077) * 1000000).toFixed(2),
+                category: 'Small'
+            },
+            {
+                state: 'Alaska',
+                population: 733391,
+                electoralVotes: 3,
+                votersPerElectoralVote: Math.round(733391 / 3),
+                voteWeight: ((3 / 733391) * 1000000).toFixed(2),
+                category: 'Small'
+            },
+            
+            // Largest states by population
+            {
+                state: 'Florida',
+                population: 21538187,
+                electoralVotes: 30,
+                votersPerElectoralVote: Math.round(21538187 / 30),
+                voteWeight: ((30 / 21538187) * 1000000).toFixed(2),
+                category: 'Large'
+            },
+            {
+                state: 'Texas',
+                population: 29145505,
+                electoralVotes: 40,
+                votersPerElectoralVote: Math.round(29145505 / 40),
+                voteWeight: ((40 / 29145505) * 1000000).toFixed(2),
+                category: 'Large'
+            },
+            {
+                state: 'California',
+                population: 39538223,
+                electoralVotes: 54,
+                votersPerElectoralVote: Math.round(39538223 / 54),
+                voteWeight: ((54 / 39538223) * 1000000).toFixed(2),
+                category: 'Large'
+            }
+        ];
+        
+        // Sort by vote weight (descending)
+        const sortedData = [...stateData].sort((a, b) => parseFloat(b.voteWeight) - parseFloat(a.voteWeight));
+        
+        // Calculate relative vote weight (using Wyoming as baseline since it has highest weight)
+        const highestWeight = parseFloat(sortedData[0].voteWeight);
+        
+        const relativeWeightData = stateData.map(state => ({
+            state: state.state,
+            relativeWeight: parseFloat(state.voteWeight) / highestWeight,
+            label: (parseFloat(state.voteWeight) / highestWeight).toFixed(2) + '×',
+            category: state.category
+        }));
+        
+        // Calculate average values for small vs large states
+        const smallStates = stateData.filter(s => s.category === 'Small');
+        const largeStates = stateData.filter(s => s.category === 'Large');
+        
+        const avgSmallVoteWeight = smallStates.reduce((sum, s) => sum + parseFloat(s.voteWeight), 0) / smallStates.length;
+        const avgLargeVoteWeight = largeStates.reduce((sum, s) => sum + parseFloat(s.voteWeight), 0) / largeStates.length;
+        
+        const avgSmallPopPerEV = smallStates.reduce((sum, s) => sum + s.votersPerElectoralVote, 0) / smallStates.length;
+        const avgLargePopPerEV = largeStates.reduce((sum, s) => sum + s.votersPerElectoralVote, 0) / largeStates.length;
+        
+        const compareData = [
+            {
+                type: '3 Smallest States',
+                voteWeight: avgSmallVoteWeight.toFixed(2),
+                votersPerEV: Math.round(avgSmallPopPerEV),
+                relativeWeight: avgSmallVoteWeight / avgLargeVoteWeight
+            },
+            {
+                type: '3 Largest States',
+                voteWeight: avgLargeVoteWeight.toFixed(2),
+                votersPerEV: Math.round(avgLargePopPerEV),
+                relativeWeight: 1
+            }
+        ];
+
+        // Update statistics display
+        document.getElementById('smallEvPerMillion').textContent = avgSmallVoteWeight.toFixed(2);
+        document.getElementById('largeEvPerMillion').textContent = avgLargeVoteWeight.toFixed(2);
+        document.getElementById('smallResidentsPerEv').textContent = Math.round(avgSmallPopPerEV).toLocaleString();
+        document.getElementById('largeResidentsPerEv').textContent = Math.round(avgLargePopPerEV).toLocaleString();
+        document.getElementById('conclusion').textContent = 
+            `A voter in one of the 3 smallest states has ${(avgSmallVoteWeight / avgLargeVoteWeight).toFixed(2)}× the electoral power of a voter in one of the 3 largest states`;
+
+        // Colors for small and large states
+        const smallStateColor = 'rgba(136, 132, 216, 0.8)';
+        const largeStateColor = 'rgba(130, 202, 157, 0.8)';
+        
+        // Function to get bar colors based on state category
+        function getBarColors(data) {
+            return data.map(item => item.category === 'Small' ? smallStateColor : largeStateColor);
+        }
+
+        // Chart 1: Electoral Votes per Million Residents
+        const evPerMillionCtx = document.getElementById('electoralVotesPerMillionChart').getContext('2d');
+        new Chart(evPerMillionCtx, {
+            type: 'bar',
+            data: {
+                labels: sortedData.map(d => d.state),
+                datasets: [{
+                    label: 'Electoral Votes per Million',
+                    data: sortedData.map(d => d.voteWeight),
+                    backgroundColor: getBarColors(sortedData),
+                    borderColor: getBarColors(sortedData).map(c => c.replace('0.8', '1')),
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                return `${context.parsed.y} electoral votes per million`;
+                            }
+                        }
+                    },
+                    legend: {
+                        display: false
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        title: {
+                            display: true,
+                            text: 'Electoral Votes per Million People'
+                        }
+                    }
+                }
+            }
+        });
+
+        // Chart 2: Population per Electoral Vote
+        const popPerEVCtx = document.getElementById('populationPerElectoralVoteChart').getContext('2d');
+        new Chart(popPerEVCtx, {
+            type: 'bar',
+            data: {
+                labels: stateData.map(d => d.state),
+                datasets: [{
+                    label: 'Population per Electoral Vote',
+                    data: stateData.map(d => d.votersPerElectoralVote),
+                    backgroundColor: getBarColors(stateData),
+                    borderColor: getBarColors(stateData).map(c => c.replace('0.8', '1')),
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                return `${context.parsed.y.toLocaleString()} residents per electoral vote`;
+                            }
+                        }
+                    },
+                    legend: {
+                        display: false
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        title: {
+                            display: true,
+                            text: 'Residents per Electoral Vote'
+                        }
+                    }
+                }
+            }
+        });
+
+        // Chart 3: Relative Voting Power
+        const relativeVoteCtx = document.getElementById('relativeVotingPowerChart').getContext('2d');
+        new Chart(relativeVoteCtx, {
+            type: 'bar',
+            data: {
+                labels: relativeWeightData.map(d => d.state),
+                datasets: [{
+                    label: 'Relative Voting Power',
+                    data: relativeWeightData.map(d => d.relativeWeight),
+                    backgroundColor: getBarColors(relativeWeightData),
+                    borderColor: getBarColors(relativeWeightData).map(c => c.replace('0.8', '1')),
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                return `${context.parsed.y.toFixed(2)}× (Wyoming as baseline)`;
+                            }
+                        }
+                    },
+                    legend: {
+                        display: false
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        title: {
+                            display: true,
+                            text: 'Relative Voting Power'
+                        }
+                    }
+                }
+            }
+        });
+
+        // Chart 4: Small vs Large States
+        const compareCtx = document.getElementById('smallVsLargeChart').getContext('2d');
+        new Chart(compareCtx, {
+            type: 'bar',
+            data: {
+                labels: compareData.map(d => d.type),
+                datasets: [{
+                    label: 'Relative Voting Power',
+                    data: compareData.map(d => d.relativeWeight),
+                    backgroundColor: [smallStateColor, largeStateColor],
+                    borderColor: [smallStateColor.replace('0.8', '1'), largeStateColor.replace('0.8', '1')],
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                return `${context.parsed.y.toFixed(2)}× voting power`;
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        title: {
+                            display: true,
+                            text: 'Relative Voting Power'
+                        }
+                    }
+                }
+            }
+        });
+
+        // Add legend manually
+        const legendContainer = document.createElement('div');
+        legendContainer.style.display = 'flex';
+        legendContainer.style.justifyContent = 'center';
+        legendContainer.style.marginTop = '10px';
+        
+        const smallLegend = document.createElement('div');
+        smallLegend.style.display = 'flex';
+        smallLegend.style.alignItems = 'center';
+        smallLegend.style.marginRight = '20px';
+        
+        const smallColor = document.createElement('div');
+        smallColor.style.width = '20px';
+        smallColor.style.height = '20px';
+        smallColor.style.backgroundColor = smallStateColor;
+        smallColor.style.marginRight = '5px';
+        
+        smallLegend.appendChild(smallColor);
+        smallLegend.appendChild(document.createTextNode('Small States'));
+        
+        const largeLegend = document.createElement('div');
+        largeLegend.style.display = 'flex';
+        largeLegend.style.alignItems = 'center';
+        
+        const largeColor = document.createElement('div');
+        largeColor.style.width = '20px';
+        largeColor.style.height = '20px';
+        largeColor.style.backgroundColor = largeStateColor;
+        largeColor.style.marginRight = '5px';
+        
+        largeLegend.appendChild(largeColor);
+        largeLegend.appendChild(document.createTextNode('Large States'));
+        
+        legendContainer.appendChild(smallLegend);
+        legendContainer.appendChild(largeLegend);
+        
+        document.querySelector('.container').insertBefore(legendContainer, document.querySelector('.conclusion').nextSibling);
+    </script>
+</body>
+</html>

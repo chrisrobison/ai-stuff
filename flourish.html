@@ -1,0 +1,464 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <style>
+        body {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            background: #f0f0f0;
+            min-height: 100vh;
+            margin: 0;
+            padding: 20px;
+            font-family: serif;
+        }
+        canvas {
+            background: white;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        .controls {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+            width: 80%;
+            max-width: 600px;
+        }
+        .control-group {
+            margin-bottom: 15px;
+        }
+        .control-row {
+            display: flex;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        .control-label {
+            width: 150px;
+            margin-right: 10px;
+        }
+        .control-input {
+            flex: 1;
+            display: flex;
+            gap: 10px;
+        }
+        input[type="range"] {
+            flex: 1;
+        }
+        input[type="number"] {
+            width: 60px;
+        }
+        button {
+            padding: 8px 16px;
+            margin: 10px 5px;
+            font-family: serif;
+            background: #2a2a2a;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+        button:hover {
+            background: #404040;
+        }
+        .control-section {
+            border-bottom: 1px solid #eee;
+            padding-bottom: 15px;
+            margin-bottom: 15px;
+        }
+        .section-title {
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+        .animation-controls {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+            padding: 10px;
+            background: #f8f8f8;
+            border-radius: 4px;
+        }
+        .speed-control {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="flourishCanvas" width="800" height="800"></canvas>
+    <div class="controls">
+        <div class="animation-controls">
+            <button onclick="toggleAnimation()">Start/Stop Animation</button>
+            <div class="speed-control">
+                <label>Speed:</label>
+                <input type="range" id="animationSpeed" min="0.1" max="2" value="1" step="0.1">
+                <span id="speedValue">1x</span>
+            </div>
+        </div>
+         <div class="control-section">
+            <div class="section-title">Branch Controls</div>
+            <div class="control-row">
+                <span class="control-label">Branch Length:</span>
+                <div class="control-input">
+                    <input type="range" id="branchLength" min="40" max="120" value="80" step="1">
+                    <input type="number" id="branchLengthNum" value="80" min="40" max="120">
+                </div>
+            </div>
+            <div class="control-row">
+                <span class="control-label">Branch Angle (deg):</span>
+                <div class="control-input">
+                    <input type="range" id="branchAngle" min="0" max="90" value="30" step="1">
+                    <input type="number" id="branchAngleNum" value="30" min="0" max="90">
+                </div>
+            </div>
+            <div class="control-row">
+                <span class="control-label">Branch Scale:</span>
+                <div class="control-input">
+                    <input type="range" id="branchScale" min="0.5" max="0.95" value="0.85" step="0.01">
+                    <input type="number" id="branchScaleNum" value="0.85" min="0.5" max="0.95" step="0.01">
+                </div>
+            </div>
+        </div>
+
+        <div class="control-section">
+            <div class="section-title">Leaf Controls</div>
+            <div class="control-row">
+                <span class="control-label">Leaf Size:</span>
+                <div class="control-input">
+                    <input type="range" id="leafSize" min="5" max="30" value="15" step="1">
+                    <input type="number" id="leafSizeNum" value="15" min="5" max="30">
+                </div>
+            </div>
+            <div class="control-row">
+                <span class="control-label">Leaf Density:</span>
+                <div class="control-input">
+                    <input type="range" id="leafDensity" min="1" max="5" value="2" step="1">
+                    <input type="number" id="leafDensityNum" value="2" min="1" max="5">
+                </div>
+            </div>
+            <div class="control-row">
+                <span class="control-label">Leaf Curl:</span>
+                <div class="control-input">
+                    <input type="range" id="leafCurl" min="0" max="1" value="0.3" step="0.01">
+                    <input type="number" id="leafCurlNum" value="0.3" min="0" max="1" step="0.01">
+                </div>
+            </div>
+        </div>
+
+        <div class="control-section">
+            <div class="section-title">Pattern Controls</div>
+            <div class="control-row">
+                <span class="control-label">Curliness:</span>
+                <div class="control-input">
+                    <input type="range" id="curliness" min="0" max="1" value="0.3" step="0.01">
+                    <input type="number" id="curlinessNum" value="0.3" min="0" max="1" step="0.01">
+                </div>
+            </div>
+            <div class="control-row">
+                <span class="control-label">Iterations:</span>
+                <div class="control-input">
+                    <input type="range" id="iterations" min="2" max="8" value="5" step="1">
+                    <input type="number" id="iterationsNum" value="5" min="2" max="8">
+                </div>
+            </div>
+            <div class="control-row">
+                <span class="control-label">Symmetry Count:</span>
+                <div class="control-input">
+                    <input type="range" id="symmetryCount" min="1" max="12" value="4" step="1">
+                    <input type="number" id="symmetryCountNum" value="4" min="1" max="12">
+                </div>
+            </div>
+        </div>
+
+        <button onclick="generateNewFlourish()">Generate New Flourish</button>
+        <button onclick="randomizeParameters()">Randomize Parameters</button>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('flourishCanvas');
+        const ctx = canvas.getContext('2d');
+        
+        let isAnimating = false;
+        let animationSpeed = 1;
+        let currentPreset = 0;
+        let transitionProgress = 0;
+
+        // Define a series of interesting presets
+        const presets = [
+            {
+                branchLength: 80,
+                branchAngle: Math.PI / 6,
+                branchScale: 0.85,
+                curliness: 0.3,
+                iterations: 5,
+                symmetryCount: 4,
+                leafSize: 15,
+                leafDensity: 2,
+                leafCurl: 0.3
+            },
+            {
+                branchLength: 100,
+                branchAngle: Math.PI / 4,
+                branchScale: 0.75,
+                curliness: 0.5,
+                iterations: 4,
+                symmetryCount: 6,
+                leafSize: 20,
+                leafDensity: 3,
+                leafCurl: 0.6
+            },
+            {
+                branchLength: 60,
+                branchAngle: Math.PI / 3,
+                branchScale: 0.9,
+                curliness: 0.2,
+                iterations: 6,
+                symmetryCount: 8,
+                leafSize: 10,
+                leafDensity: 4,
+                leafCurl: 0.2
+            },
+            {
+                branchLength: 90,
+                branchAngle: Math.PI / 5,
+                branchScale: 0.8,
+                curliness: 0.7,
+                iterations: 5,
+                symmetryCount: 5,
+                leafSize: 18,
+                leafDensity: 2,
+                leafCurl: 0.8
+            }
+        ];
+
+        const config = { ...presets[0] };
+        function lerp(start, end, t) {
+            return start + (end - start) * t;
+        }
+
+        function updateConfigFromPresets() {
+            const currentPresetConfig = presets[currentPreset];
+            const nextPresetConfig = presets[(currentPreset + 1) % presets.length];
+
+            Object.keys(config).forEach(key => {
+                config[key] = lerp(
+                    currentPresetConfig[key],
+                    nextPresetConfig[key],
+                    transitionProgress
+                );
+            });
+
+            // Update UI controls to match current values
+            Object.keys(config).forEach(key => {
+                const slider = document.getElementById(key);
+                const numInput = document.getElementById(key + 'Num');
+                if (slider && numInput) {
+                    const value = key === 'branchAngle' 
+                        ? (config[key] * 180 / Math.PI)
+                        : config[key];
+                    slider.value = value;
+                    numInput.value = value;
+                }
+            });
+        }
+
+        function animate() {
+            if (!isAnimating) return;
+
+            transitionProgress += 0.01 * animationSpeed;
+            if (transitionProgress >= 1) {
+                transitionProgress = 0;
+                currentPreset = (currentPreset + 1) % presets.length;
+            }
+
+            updateConfigFromPresets();
+            generateNewFlourish();
+            requestAnimationFrame(animate);
+        }
+
+        function toggleAnimation() {
+            isAnimating = !isAnimating;
+            if (isAnimating) {
+                animate();
+            }
+        }
+
+
+        function drawLeaf(x, y, size, angle, curl) {
+            ctx.save();
+            ctx.translate(x, y);
+            ctx.rotate(angle);
+            
+            ctx.beginPath();
+            ctx.moveTo(0, 0);
+            
+            const cp1x = size * 0.5;
+            const cp1y = -size * curl;
+            const cp2x = size * 0.8;
+            const cp2y = -size * (0.5 + curl);
+            const endX = size;
+            const endY = 0;
+            
+            ctx.bezierCurveTo(cp1x, cp1y, cp2x, cp2y, endX, endY);
+            ctx.bezierCurveTo(cp2x, cp2y * -0.5, cp1x, cp1y * -0.5, 0, 0);
+            
+            ctx.fill();
+            ctx.restore();
+        }
+
+        function drawBranch(x, y, length, angle, depth) {
+            if (depth <= 0 || length < 2) return;
+
+            const endX = x + Math.cos(angle) * length;
+            const endY = y + Math.sin(angle) * length;
+
+            ctx.beginPath();
+            ctx.moveTo(x, y);
+            
+            const controlX = x + Math.cos(angle - config.curliness) * length * 0.5;
+            const controlY = y + Math.sin(angle - config.curliness) * length * 0.5;
+            
+            ctx.quadraticCurveTo(controlX, controlY, endX, endY);
+            ctx.stroke();
+
+            // Add leaves along the branch
+            for (let i = 0; i < config.leafDensity; i++) {
+                const t = i / config.leafDensity;
+                const leafX = x + (endX - x) * t;
+                const leafY = y + (endY - y) * t;
+                const leafAngle = angle + Math.PI / 2 + (Math.random() - 0.5) * Math.PI / 4;
+                const leafSize = config.leafSize * (0.8 + Math.random() * 0.4);
+                drawLeaf(leafX, leafY, leafSize, leafAngle, config.leafCurl);
+            }
+
+            if (depth > 1) {
+                ctx.beginPath();
+                ctx.arc(endX, endY, length * 0.1, 0, Math.PI * 2);
+                ctx.fill();
+            }
+
+            const newLength = length * config.branchScale;
+            drawBranch(endX, endY, newLength, angle + config.branchAngle, depth - 1);
+            drawBranch(endX, endY, newLength, angle - config.branchAngle, depth - 1);
+
+            if (depth === 1) {
+                ctx.beginPath();
+                ctx.arc(endX, endY, length * 0.2, angle, angle + Math.PI * 1.5);
+                ctx.stroke();
+            }
+        }
+
+        function generateNewFlourish() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            ctx.strokeStyle = '#2a2a2a';
+            ctx.fillStyle = '#2a2a2a';
+            ctx.lineWidth = 2;
+            ctx.lineCap = 'round';
+            
+            const centerX = canvas.width / 2;
+            const centerY = canvas.height / 2;
+
+            for (let i = 0; i < config.symmetryCount; i++) {
+                const angle = (i * Math.PI * 2) / config.symmetryCount;
+                
+                ctx.save();
+                ctx.translate(centerX, centerY);
+                ctx.rotate(angle);
+                
+                drawBranch(0, 0, config.branchLength, -Math.PI/2, config.iterations);
+                
+                ctx.restore();
+            }
+
+            ctx.beginPath();
+            ctx.arc(centerX, centerY, 15, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.beginPath();
+            ctx.arc(centerX, centerY, 25, 0, Math.PI * 2);
+            ctx.stroke();
+        }
+
+        function setupControls() {
+            const controls = {
+                branchLength: document.getElementById('branchLength'),
+                branchAngle: document.getElementById('branchAngle'),
+                branchScale: document.getElementById('branchScale'),
+                curliness: document.getElementById('curliness'),
+                iterations: document.getElementById('iterations'),
+                symmetryCount: document.getElementById('symmetryCount'),
+                leafSize: document.getElementById('leafSize'),
+                leafDensity: document.getElementById('leafDensity'),
+                leafCurl: document.getElementById('leafCurl')
+            };
+
+            const numControls = {
+                branchLength: document.getElementById('branchLengthNum'),
+                branchAngle: document.getElementById('branchAngleNum'),
+                branchScale: document.getElementById('branchScaleNum'),
+                curliness: document.getElementById('curlinessNum'),
+                iterations: document.getElementById('iterationsNum'),
+                symmetryCount: document.getElementById('symmetryCountNum'),
+                leafSize: document.getElementById('leafSizeNum'),
+                leafDensity: document.getElementById('leafDensityNum'),
+                leafCurl: document.getElementById('leafCurlNum')
+            };
+
+            Object.keys(controls).forEach(key => {
+                controls[key].addEventListener('input', (e) => {
+                    let value = parseFloat(e.target.value);
+                    numControls[key].value = value;
+                    if (key === 'branchAngle') {
+                        config[key] = (value * Math.PI) / 180;
+                    } else {
+                        config[key] = value;
+                    }
+                    generateNewFlourish();
+                });
+
+                numControls[key].addEventListener('input', (e) => {
+                    let value = parseFloat(e.target.value);
+                    controls[key].value = value;
+                    if (key === 'branchAngle') {
+                        config[key] = (value * Math.PI) / 180;
+                    } else {
+                        config[key] = value;
+                    }
+                    generateNewFlourish();
+                });
+            });
+        }
+
+        function randomizeParameters() {
+            document.getElementById('branchLength').value = Math.random() * 80 + 40;
+            document.getElementById('branchAngle').value = Math.random() * 90;
+            document.getElementById('branchScale').value = Math.random() * 0.45 + 0.5;
+            document.getElementById('curliness').value = Math.random();
+            document.getElementById('iterations').value = Math.floor(Math.random() * 7) + 2;
+            document.getElementById('symmetryCount').value = Math.floor(Math.random() * 12) + 1;
+            document.getElementById('leafSize').value = Math.random() * 25 + 5;
+            document.getElementById('leafDensity').value = Math.floor(Math.random() * 5) + 1;
+            document.getElementById('leafCurl').value = Math.random();
+
+            document.querySelectorAll('input[type="number"]').forEach(input => {
+                input.value = document.getElementById(input.id.replace('Num', '')).value;
+                input.dispatchEvent(new Event('input'));
+            });
+        }
+        
+        // Setup animation speed control
+        document.getElementById('animationSpeed').addEventListener('input', (e) => {
+            animationSpeed = parseFloat(e.target.value);
+            document.getElementById('speedValue').textContent = animationSpeed.toFixed(1) + 'x';
+        });
+
+
+        // Initialize controls and generate first flourish
+        setupControls();
+        generateNewFlourish();
+    </script>
+</body>
+</html>

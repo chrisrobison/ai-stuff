@@ -1,0 +1,450 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <style>
+        .container {
+            margin: 20px;
+            max-width: 100%;
+            overflow: hidden;
+        }
+        #graph {
+            width: 100%;
+            height: 600px;
+            overflow: auto;
+            border: 1px solid #eee;
+            position: relative;
+        }
+        svg {
+            min-width: 960px;
+            min-height: 600px;
+        }
+        .search-form {
+            margin-bottom: 20px;
+        }
+        .search-form input {
+            padding: 8px;
+            font-size: 16px;
+            width: 200px;
+        }
+        .search-form button {
+            padding: 8px 16px;
+            font-size: 16px;
+            margin-left: 8px;
+        }
+        .node {
+            cursor: pointer;
+        }
+        .node circle {
+            stroke: #fff;
+            stroke-width: 1.5px;
+        }
+        .node text {
+            font-family: sans-serif;
+            font-size: 12px;
+            text-anchor: middle;
+            dominant-baseline: middle;
+            fill: white;
+            pointer-events: none;
+        }
+        .link {
+            stroke: #999;
+            stroke-opacity: 0.6;
+        }
+        .category-hull {
+            fill: #f0f0f0;
+            stroke: #ddd;
+            stroke-width: 1.5px;
+            opacity: 0.3;
+        }
+        .category-label {
+            font-size: 12px;
+            fill: #666;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="search-form">
+            <input type="text" id="wordInput" placeholder="Enter a word...">
+            <button onclick="searchWord()">Search</button>
+        </div>
+        <div id="graph"></div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
+    <script>
+        // Graph state
+        let nodes = [];
+        let links = [];
+        let categories = new Map(); // Track category groups
+        let simulation;
+        let svg;
+        
+        // Graph dimensions
+        const width = 1920;  // Increased for more space
+        const height = 1200; // Increased for more space
+        
+        // Track pan position
+        let currentTransform = { x: 0, y: 0, k: 1 };
+
+        // Initialize SVG
+        function initializeSVG() {
+            d3.select("#graph").selectAll("*").remove();
+            svg = d3.select("#graph")
+                .append("svg")
+                .attr("width", width)
+                .attr("height", height)
+                .attr("viewBox", `0 0 ${width} ${height}`);
+            
+            // Add groups in specific order (hulls behind links behind nodes)
+            svg.append("g").attr("class", "hulls");
+            svg.append("g").attr("class", "links");
+            svg.append("g").attr("class", "nodes");
+        }
+
+        // Process data into nodes and links
+        function processData(data, sourceWord, sourceId = null) {
+            const newNodes = [];
+            const newLinks = [];
+            
+            // If this is the first word (no sourceId), add it as center
+            if (!sourceId) {
+                newNodes.push({
+                    id: sourceWord,
+                    name: sourceWord,
+                    group: "center",
+                    category: "center",
+                    radius: Math.max(30, getTextWidth(sourceWord) / 1.5),
+                    explored: false
+                });
+            }
+
+            // Group synonyms by category
+            const categoryGroups = new Map();
+            data.response.forEach((item) => {
+                const category = item.list.category;
+                if (!categoryGroups.has(category)) {
+                    categoryGroups.set(category, []);
+                }
+                const synonyms = item.list.synonyms.split('|');
+                categoryGroups.get(category).push(...synonyms);
+            });
+
+            // Process each category group
+            categoryGroups.forEach((synonyms, category) => {
+                const categoryId = `${sourceWord}-${category}-${Math.random()}`;
+                
+                // Create a hub node for this category
+                const hubNode = {
+                    id: categoryId,
+                    name: category,
+                    group: 'hub',
+                    categoryId: categoryId,
+                    radius: Math.max(25, getTextWidth(category) / 1.5),
+                    explored: false,
+                    isHub: true
+                };
+                newNodes.push(hubNode);
+                
+                // Link hub to parent
+                newLinks.push({
+                    source: sourceId || sourceWord,
+                    target: categoryId,
+                    value: 1,
+                    isHubLink: true
+                });
+
+                categories.set(categoryId, {
+                    id: categoryId,
+                    category: category,
+                    parent: sourceId || sourceWord
+                });
+
+                synonyms.forEach((synonym) => {
+                    const cleanSynonym = synonym.replace(/\s*\([^)]*\)/g, '').trim();
+                    
+                    // Check if this node already exists
+                    const existingNode = nodes.find(n => n.name === cleanSynonym);
+                    if (!existingNode && !newNodes.some(n => n.name === cleanSynonym)) {
+                        const nodeId = `${cleanSynonym}-${Math.random()}`;
+                        newNodes.push({
+                            id: nodeId,
+                            name: cleanSynonym,
+                            group: category,
+                            categoryId: categoryId,
+                            radius: Math.max(20, getTextWidth(cleanSynonym) / 1.5),
+                            explored: false
+                        });
+                        
+                        // Create link to category hub
+                        newLinks.push({
+                            source: categoryId,
+                            target: nodeId,
+                            value: 1,
+                            category: category
+                        });
+                    }
+                });
+            });
+
+            return { newNodes, newLinks };
+        }
+
+        // Helper function to estimate text width
+        function getTextWidth(text) {
+            const canvas = document.createElement('canvas');
+            const context = canvas.getContext('2d');
+            context.font = '12px sans-serif';
+            return context.measureText(text).width + 20; // Add padding
+        }
+
+        // Draw convex hulls around category groups
+        function drawCategoryHulls() {
+            const hullData = Array.from(categories.values())
+                .map(category => {
+                    const categoryNodes = nodes.filter(n => n.categoryId === category.id);
+                    if (categoryNodes.length < 2) return null;
+                    
+                    // Get the parent node
+                    const parentNode = nodes.find(n => n.id === category.parent);
+                    if (!parentNode) return null;
+
+                    // Include parent node in hull calculation
+                    const points = categoryNodes.map(n => [n.x, n.y]);
+                    points.push([parentNode.x, parentNode.y]);
+
+                    return {
+                        id: category.id,
+                        points: d3.polygonHull(points),
+                        category: category.category
+                    };
+                })
+                .filter(d => d !== null);
+
+            // Update hulls
+            const hulls = svg.select(".hulls")
+                .selectAll("path")
+                .data(hullData, d => d.id);
+
+            hulls.exit().remove();
+
+            const hullsEnter = hulls.enter()
+                .append("path")
+                .attr("class", "category-hull");
+
+            hulls.merge(hullsEnter)
+                .attr("d", d => {
+                    const curve = d3.line().curve(d3.curveCardinalClosed.tension(0.8));
+                    const padding = 25;
+                    const paddedPoints = d.points.map(point => {
+                        const [x, y] = point;
+                        const angle = Math.atan2(y - height/2, x - width/2);
+                        return [x + padding * Math.cos(angle), y + padding * Math.sin(angle)];
+                    });
+                    return curve(paddedPoints);
+                });
+        }
+
+        // Update the visualization
+        function updateVisualization() {
+            // Update links
+            const link = svg.select(".links")
+                .selectAll("line")
+                .data(links, d => `${d.source.id || d.source}-${d.target.id || d.target}`);
+
+            link.exit().remove();
+
+            const linkEnter = link.enter()
+                .append("line")
+                .attr("class", "link");
+
+            // Update nodes
+            const node = svg.select(".nodes")
+                .selectAll(".node")
+                .data(nodes, d => d.id);
+
+            node.exit().remove();
+
+            const nodeEnter = node.enter()
+                .append("g")
+                .attr("class", "node")
+                .call(d3.drag()
+                    .on("start", dragstarted)
+                    .on("drag", dragged)
+                    .on("end", dragended))
+                .on("click", handleNodeClick);
+
+            nodeEnter.append("circle")
+                .attr("r", d => d.radius)
+                .style("fill", d => getNodeColor(d));
+
+            nodeEnter.append("text")
+                .text(d => d.name);
+
+            // Update existing nodes
+            node.select("circle")
+                .style("fill", d => getNodeColor(d));
+        }
+
+        // Create force simulation
+        function createForceSimulation() {
+            simulation = d3.forceSimulation()
+                .force("link", d3.forceLink().id(d => d.id)
+                    .distance(d => {
+                        if (d.isHubLink) return 150;
+                        if (d.source.isHub || d.target.isHub) return 80;
+                        return 60;
+                    }))
+                .force("charge", d3.forceManyBody()
+                    .strength(d => {
+                        if (d.group === "center") return -500;
+                        if (d.isHub) return -300;
+                        return -100;
+                    }))
+                .force("center", d3.forceCenter(width / 2, height / 2))
+                .force("collision", d3.forceCollide().radius(d => d.radius + 5))
+                .force("radial", d3.forceRadial(d => d.isHub ? 150 : 200, width / 2, height / 2)
+                    .strength(d => {
+                        if (d.group === "center") return 0.3;
+                        if (d.isHub) return 0.2;
+                        return 0.1;
+                    }))
+                .force("cluster", function(alpha) {
+                    const clusters = new Map();
+                    nodes.forEach(d => {
+                        if (d.categoryId) {
+                            if (!clusters.has(d.categoryId)) {
+                                clusters.set(d.categoryId, {x: 0, y: 0, count: 0});
+                            }
+                            const cluster = clusters.get(d.categoryId);
+                            cluster.x += d.x;
+                            cluster.y += d.y;
+                            cluster.count += 1;
+                        }
+                    });
+                    
+                    clusters.forEach(cluster => {
+                        if (cluster.count > 0) {
+                            cluster.x = cluster.x / cluster.count;
+                            cluster.y = cluster.y / cluster.count;
+                        }
+                    });
+                    
+                    nodes.forEach(d => {
+                        if (d.categoryId && clusters.has(d.categoryId)) {
+                            const cluster = clusters.get(d.categoryId);
+                            const k = 0.1 * alpha;
+                            d.vx -= (d.x - cluster.x) * k;
+                            d.vy -= (d.y - cluster.y) * k;
+                        }
+                    });
+                })
+                .on("tick", () => {
+                    svg.selectAll(".link")
+                        .attr("x1", d => d.source.x)
+                        .attr("y1", d => d.source.y)
+                        .attr("x2", d => d.target.x)
+                        .attr("y2", d => d.target.y);
+
+                    svg.selectAll(".node")
+                        .attr("transform", d => `translate(${d.x},${d.y})`);
+                    
+                    drawCategoryHulls();
+                });
+        }
+
+        // Get color based on node type
+        function getNodeColor(node) {
+            if (node.explored) return "#85bb65";
+            if (node.group === "center") return "#ff7f0e";
+            if (node.isHub) return "#9467bd";
+            return "#1f77b4";
+        }
+
+        // Handle node click
+        async function handleNodeClick(event, d) {
+            if (d.explored) return;
+            
+            const data = await fetchWordData(d.name);
+            if (!data) return;
+
+            const { newNodes, newLinks } = processData(data, d.name, d.id);
+            
+            d.explored = true;
+            
+            nodes = nodes.concat(newNodes);
+            links = links.concat(newLinks);
+            
+            updateVisualization();
+            
+            simulation.nodes(nodes);
+            simulation.force("link").links(links);
+            simulation.alpha(1).restart();
+        }
+
+        // Fetch data from API
+        async function fetchWordData(word) {
+            const baseUrl = 'https://thesaurus.altervista.org/service.php';
+            const params = new URLSearchParams({
+                word: word,
+                language: 'en_US',
+                output: 'json',
+                key: 'uPg9e4w3ikOcjkaruu5P'
+            });
+
+            try {
+                const response = await fetch(`${baseUrl}?${params}`);
+                const jsonResponse = await response.json();
+                return jsonResponse;
+            } catch (error) {
+                console.error('Error fetching data:', error);
+                return null;
+            }
+        }
+
+        // Search for a new word
+        async function searchWord() {
+            const word = document.getElementById('wordInput').value.trim();
+            if (!word) return;
+
+            nodes = [];
+            links = [];
+            categories.clear();
+            initializeSVG();
+
+            const data = await fetchWordData(word);
+            if (!data) return;
+
+            const { newNodes, newLinks } = processData(data, word);
+            nodes = newNodes;
+            links = newLinks;
+
+            createForceSimulation();
+            updateVisualization();
+            
+            simulation.nodes(nodes);
+            simulation.force("link").links(links);
+        }
+
+        // Drag functions
+        function dragstarted(event, d) {
+            if (!event.active) simulation.alphaTarget(0.3).restart();
+            d.fx = d.x;
+            d.fy = d.y;
+        }
+
+        function dragged(event, d) {
+            d.fx = event.x;
+            d.fy = event.y;
+        }
+
+        function dragended(event, d) {
+            if (!event.active) simulation.alphaTarget(0);
+            d.fx = null;
+            d.fy = null;
+        }
+
+        initializeSVG();
+    </script>
+</body>
+</html>

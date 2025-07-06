@@ -1,0 +1,481 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>You May Ask Yourself - Wheel of Fortune</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Arial', sans-serif;
+            background: linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            padding-top: 20px;
+            padding-bottom: 0;
+        }
+
+        .container {
+            text-align: center;
+            max-width: 800px;
+            width: 100%;
+        }
+
+        h1 {
+            font-size: clamp(2rem, 5vw, 3.5rem);
+            font-weight: bold;
+            margin-bottom: 2rem;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+        }
+
+        .wheel-container {
+            position: relative;
+            display: inline-block;
+            margin: 2rem 0;
+        }
+
+        #wheelCanvas {
+            border-radius: 50%;
+            box-shadow: 0 0 30px rgba(0,0,0,0.7);
+            transition: transform 4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+            cursor: pointer;
+        }
+
+        .pointer {
+            position: absolute;
+            top: -10px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 0;
+            height: 0;
+            border-left: 15px solid transparent;
+            border-right: 15px solid transparent;
+            border-top: 30px solid #ffcc00;
+            z-index: 10;
+            filter: drop-shadow(2px 2px 4px rgba(0,0,0,0.5));
+        }
+
+        .center-circle {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 60px;
+            height: 60px;
+            background: #333;
+            border-radius: 50%;
+            border: 4px solid #ffcc00;
+            z-index: 5;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            color: #ffcc00;
+            font-size: 12px;
+        }
+
+        .controls {
+            margin-top: 2rem;
+        }
+
+        button {
+            background: linear-gradient(45deg, #ffcc00, #ff9900);
+            border: none;
+            padding: 15px 30px;
+            font-size: 1.2rem;
+            font-weight: bold;
+            color: #333;
+            border-radius: 50px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(255, 204, 0, 0.3);
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(255, 204, 0, 0.4);
+        }
+
+        button:active {
+            transform: translateY(0);
+        }
+
+        button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .result {
+            margin-top: 2rem;
+            padding: 20px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 15px;
+            backdrop-filter: blur(10px);
+            min-height: 80px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .result-text {
+            font-size: 1.5rem;
+            font-weight: bold;
+            text-align: center;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                padding: 10px;
+            }
+            
+            #wheelCanvas {
+                max-width: 90vw;
+                max-height: 90vw;
+            }
+            
+            button {
+                padding: 12px 24px;
+                font-size: 1rem;
+            }
+            
+            .result-text {
+                font-size: 1.2rem;
+            }
+        }
+        
+        .popup-container {
+            width: 317px;
+            height: 500px;
+            margin: 100px auto;
+            perspective: 1000px; /* Container perspective */
+            position: absolute;
+            bottom: 0px;
+            left: calc(50vw - 133)px;
+            pointer-events: none;
+            z-index: 99999;
+        }
+
+        .popup-div {
+            width: 100%;
+            height: 100%;
+            background: url("img/david.png");
+            background-size: contain;
+            background-repeat: no-repeat;
+            border-radius: 10px;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 24px;
+            font-weight: bold;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+            z-index: 9999;
+            /* Transform origin at bottom center */
+            transform-origin: bottom center;
+
+            /* Initial state - flat (invisible) */
+            transform: rotateX(90deg);
+
+        }
+        .popup {
+            /* Animation */
+            animation: popupRotate 3s ease-in-out forwards running;
+            display: flex;
+        }
+
+        @keyframes popupRotate {
+            0% {
+                /* Start flat (invisible) */
+                transform: rotateX(90deg);
+                opacity: 0;
+            }
+            25% {
+                /* Rotate into view */
+                transform: rotateX(0deg);
+                opacity: 1;
+            }
+            75% {
+                /* Stay visible for a moment */
+                transform: rotateX(0deg);
+                opacity: 1;
+            }
+            100% {
+                /* Continue rotating off screen */
+                transform: rotateX(-90deg);
+                opacity: 0;
+            }
+        }
+
+        /* Demo button to restart animation */
+        .restart-btn {
+            display: block;
+            margin: 50px auto;
+            padding: 12px 24px;
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: background 0.3s;
+        }
+
+        .restart-btn:hover {
+            background: #5a67d8;
+        }
+
+        /* Alternative version with different timing */
+        .popup-div.slow {
+            animation: popupRotateSlow 5s ease-in-out forwards;
+        }
+
+        @keyframes popupRotateSlow {
+            0% {
+                transform: rotateX(90deg);
+                opacity: 0;
+            }
+            20% {
+                transform: rotateX(0deg);
+                opacity: 1;
+            }
+            80% {
+                transform: rotateX(0deg);
+                opacity: 1;
+            }
+            100% {
+                transform: rotateX(-90deg);
+                opacity: 0;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>You may ask yourself</h1>
+        
+        <div class="wheel-container">
+            <div class="pointer"></div>
+            <canvas id="wheelCanvas" width="400" height="400"></canvas>
+            <div class="center-circle">SPIN</div>
+        </div>
+        
+        <div class="controls">
+            <button id="spinButton">Spin the Wheel!</button>
+        </div>
+        
+        <div class="result">
+            <div class="result-text" id="resultText">Click to spin and discover your existential question!</div>
+        </div>
+    </div>
+    <audio src="find-yourself.mp3" loop="true" id="bgmusic"></audio>
+    <div class="popup-container">
+        <div class="popup-div" id="popupDiv">
+        </div>
+    </div>
+    <script>
+        class WheelOfFortune {
+            constructor() {
+                this.canvas = document.getElementById('wheelCanvas');
+                this.ctx = this.canvas.getContext('2d');
+                this.spinButton = document.getElementById('spinButton');
+                this.resultText = document.getElementById('resultText');
+                
+                this.segments = [
+                    { text: "HOW DO I WORK THIS?", color: "#ff6b9d" },
+                    { text: "WHAT IS THAT BEAUTIFUL HOUSE?", color: "#a8daff" },
+                    { text: "WHERE IS THAT LARGE AUTOMOBILE?", color: "#ff8c42" },
+                    { text: "HOW DID I GET HERE?", color: "#c8e6c9" },
+                    { text: "MY GOD WHAT HAVE I DONE?", color: "#81c784" },
+                    { text: "AM I WRONG?", color: "#4fc3f7" },
+                    { text: "AM I RIGHT?", color: "#29b6f6" },
+                    { text: "WHERE DOES THAT HIGHWAY GO?", color: "#ff6b9d" }
+                ];
+                
+                this.isSpinning = false;
+                this.currentAngle = 0;
+                
+                this.init();
+            }
+            
+            init() {
+                this.drawWheel();
+                this.setupEventListeners();
+                this.resizeCanvas();
+                window.addEventListener('resize', () => this.resizeCanvas());
+            }
+            
+            resizeCanvas() {
+                const container = this.canvas.parentElement;
+                const maxSize = Math.min(window.innerWidth * 0.8, window.innerHeight * 0.6, 400);
+                this.canvas.width = maxSize;
+                this.canvas.height = maxSize;
+                this.canvas.style.width = maxSize + 'px';
+                this.canvas.style.height = maxSize + 'px';
+                this.drawWheel();
+            }
+            
+            drawWheel() {
+                const centerX = this.canvas.width / 2;
+                const centerY = this.canvas.height / 2;
+                const radius = Math.min(centerX, centerY) - 10;
+                const segmentAngle = (2 * Math.PI) / this.segments.length;
+                
+                this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+                
+                // Draw segments
+                this.segments.forEach((segment, index) => {
+                    const startAngle = index * segmentAngle + this.currentAngle;
+                    const endAngle = startAngle + segmentAngle;
+                    
+                    // Draw segment
+                    this.ctx.beginPath();
+                    this.ctx.moveTo(centerX, centerY);
+                    this.ctx.arc(centerX, centerY, radius, startAngle, endAngle);
+                    this.ctx.closePath();
+                    this.ctx.fillStyle = segment.color;
+                    this.ctx.fill();
+                    
+                    // Draw border
+                    this.ctx.strokeStyle = '#333';
+                    this.ctx.lineWidth = 3;
+                    this.ctx.stroke();
+                    
+                    // Draw text
+                    this.ctx.save();
+                    this.ctx.translate(centerX, centerY);
+                    this.ctx.rotate(startAngle + segmentAngle / 2);
+                    
+                    this.ctx.fillStyle = '#333';
+                    this.ctx.font = `bold ${Math.max(10, radius * 0.06)}px Arial`;
+                    this.ctx.textAlign = 'center';
+                    this.ctx.textBaseline = 'middle';
+                    
+                    // Split text into multiple lines if needed
+                    const words = segment.text.split(' ');
+                    const maxWidth = radius * 0.8;
+                    let lines = [];
+                    let currentLine = '';
+                    
+                    words.forEach(word => {
+                        const testLine = currentLine + (currentLine ? ' ' : '') + word;
+                        const metrics = this.ctx.measureText(testLine);
+                        if (metrics.width > maxWidth && currentLine) {
+                            lines.push(currentLine);
+                            currentLine = word;
+                        } else {
+                            currentLine = testLine;
+                        }
+                    });
+                    if (currentLine) lines.push(currentLine);
+                    
+                    const lineHeight = radius * 0.08;
+                    const startY = -(lines.length - 1) * lineHeight / 2;
+                    
+                    lines.forEach((line, lineIndex) => {
+                        this.ctx.fillText(line, radius * 0.6, startY + lineIndex * lineHeight);
+                    });
+                    
+                    this.ctx.restore();
+                });
+            }
+            
+            setupEventListeners() {
+                this.spinButton.addEventListener('click', () => this.spin());
+                this.canvas.addEventListener('click', () => this.spin());
+            }
+            
+            spin() {
+                if (this.isSpinning) return;
+                document.querySelector("#bgmusic").play();
+
+                this.isSpinning = true;
+                this.spinButton.disabled = true;
+                this.resultText.textContent = 'Spinning...';
+                
+                // Random spin: 3-6 full rotations plus random angle
+                const minSpins = 3;
+                const maxSpins = 6;
+                const spins = Math.random() * (maxSpins - minSpins) + minSpins;
+                const finalAngle = spins * 2 * Math.PI + Math.random() * 2 * Math.PI;
+                
+                const startTime = Date.now();
+                const duration = 4000; // 4 seconds
+                const startAngle = this.currentAngle;
+                
+                const animate = () => {
+                    const elapsed = Date.now() - startTime;
+                    const progress = Math.min(elapsed / duration, 1);
+                    
+                    // Easing function for smooth deceleration
+                    const easeOut = 1 - Math.pow(1 - progress, 3);
+                    
+                    this.currentAngle = startAngle + finalAngle * easeOut;
+                    this.drawWheel();
+                    
+                    if (progress < 1) {
+                        requestAnimationFrame(animate);
+                    } else {
+                        document.querySelector("#bgmusic").pause();
+                        document.querySelector(".popup-div").classList.add("popup");
+                        this.finishSpin();
+                    }
+                };
+                
+                requestAnimationFrame(animate);
+            }
+            
+            finishSpin() {
+                this.isSpinning = false;
+                this.spinButton.disabled = false;
+                
+                // Calculate which segment the pointer is on
+                const segmentAngle = (2 * Math.PI) / this.segments.length;
+                // Pointer is at top (90 degrees offset from 0), so we add PI/2 to correct for this
+                const pointerAngle = -Math.PI / 2; // 90 degrees in radians
+                const normalizedAngle = ((-this.currentAngle + pointerAngle) % (2 * Math.PI) + (2 * Math.PI)) % (2 * Math.PI);
+                const segmentIndex = Math.floor(normalizedAngle / segmentAngle) % this.segments.length;
+                
+                const selectedSegment = this.segments[segmentIndex];
+                this.resultText.textContent = selectedSegment.text;
+                
+                // Add some visual feedback
+                setTimeout(() => {
+                    this.resultText.style.animation = 'none';
+                    this.resultText.offsetHeight; // Trigger reflow
+                    this.resultText.style.animation = 'pulse 0.5s ease-in-out';
+                }, 100);
+
+                setTimeout(() => {
+                    document.querySelector(".popup").classList.remove("popup");
+                }, 3100);
+            }
+        }
+        
+        // Add CSS animation for result text
+        const style = document.createElement('style');
+        style.textContent = `
+            @keyframes pulse {
+                0% { transform: scale(1); }
+                50% { transform: scale(1.05); }
+                100% { transform: scale(1); }
+            }
+        `;
+        document.head.appendChild(style);
+        
+        // Initialize the wheel when page loads
+        window.addEventListener('load', () => {
+            new WheelOfFortune();
+        });
+    </script>
+</body>
+</html>
